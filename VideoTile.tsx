@@ -1,0 +1,2 @@
+import { useEffect, useRef } from "react";
+export function VideoTile({ stream, muted = false, volume = 1, label }: { stream: MediaStream; muted?: boolean; volume?: number; label: string }) { const ref = useRef<HTMLVideoElement>(null); useEffect(() => { if (ref.current) { ref.current.srcObject = stream; ref.current.volume = volume; } }, [stream, volume]); return <div className="video-tile"><video ref={ref} autoPlay playsInline muted={muted}/><span>{label}</span></div>; }
