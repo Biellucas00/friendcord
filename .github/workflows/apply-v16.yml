@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - FriendCord-v16-compact-call-final.zip
+      - .github/workflows/apply-v16.yml
 permissions:
   contents: write
 jobs:
