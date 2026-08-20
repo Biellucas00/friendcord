@@ -11,7 +11,9 @@ export async function notifyMemberJoined(roomId: string, userId: string) {
   const person = (await query<any>(`SELECT id,username,display_name AS "displayName",custom_status AS "customStatus",CASE WHEN avatar_id IS NULL THEN NULL ELSE '/api/attachments/'||avatar_id END AS "avatarUrl" FROM users WHERE id=$1`, [userId])).rows[0];
   if (!person) return;
   activeIo?.emit("room:member-joined", { roomId, user: person });
-  const channel = (await query<{ id: string }>("SELECT id FROM channels WHERE room_id=$1 AND kind='text' ORDER BY created_at LIMIT 1", [roomId])).rows[0];
+  const textChannels = await query<{ id: string }>("SELECT id FROM channels WHERE room_id=$1 AND kind='text' ORDER BY created_at", [roomId]);
+  textChannels.rows.forEach(({ id }) => activeIo?.in(`user:${userId}`).socketsJoin(`channel:${id}`));
+  const channel = textChannels.rows[0];
   if (!channel) return;
   const bot = (await query<any>("INSERT INTO users(username,display_name,password_hash,custom_status) VALUES('friendcord','FriendCord','DISABLED_SYSTEM_ACCOUNT','Sistema') ON CONFLICT(username) DO UPDATE SET display_name=EXCLUDED.display_name RETURNING id,username,display_name AS \"displayName\"", [])).rows[0];
   const message = (await query<any>("INSERT INTO messages(channel_id,author_id,body) VALUES($1,$2,$3) RETURNING id,channel_id AS \"channelId\",body,created_at AS \"createdAt\"", [channel.id, bot.id, `👋 @${person.username} entrou no servidor.`])).rows[0];
