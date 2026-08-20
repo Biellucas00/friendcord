@@ -13,8 +13,17 @@ export function attachSocket(server: Server) {
   io.on("connection", (socket) => {
     const user = socket.data.user as AuthUser; const entry = online.get(user.id) ?? { user, sockets: new Set<string>() }; entry.sockets.add(socket.id); online.set(user.id, entry); publishPresence();
     socket.on("channel:join", async (channelId) => { const allowed = await query("SELECT 1 FROM channels c JOIN memberships m ON m.room_id=c.room_id WHERE c.id=$1 AND m.user_id=$2", [channelId, user.id]); if (allowed.rowCount) socket.join(`channel:${channelId}`); });
-    socket.on("message:send", async ({ channelId, body }) => { const clean = body.trim().slice(0, 2000); if (!clean) return; const result = await query<any>("INSERT INTO messages(channel_id,author_id,body) SELECT $1,$2,$3 WHERE EXISTS(SELECT 1 FROM channels c JOIN memberships m ON m.room_id=c.room_id WHERE c.id=$1 AND m.user_id=$2) RETURNING id,channel_id AS \"channelId\",body,created_at AS \"createdAt\"", [channelId, user.id, clean]); if (result.rows[0]) io.to(`channel:${channelId}`).emit("message:new", { ...result.rows[0], author: user }); });
-    socket.on("call:join", async (channelId) => { const allowed = await query("SELECT 1 FROM channels c JOIN memberships m ON m.room_id=c.room_id WHERE c.id=$1 AND c.kind='voice' AND m.user_id=$2", [channelId, user.id]); if (!allowed.rowCount) return; const room = `call:${channelId}`; const peers = await io.in(room).fetchSockets(); socket.join(room); for (const peer of peers) { peer.emit("webrtc:peer-joined", { socketId: socket.id, user }); } });
+    socket.on("message:send", async ({ channelId, body, attachmentId }) => {
+      const clean = body.trim().slice(0, 2000); if (!clean && !attachmentId) return;
+      const result = await query<any>(`INSERT INTO messages(channel_id,author_id,body,attachment_id)
+        SELECT $1,$2,$3,$4 WHERE EXISTS(SELECT 1 FROM channels c JOIN memberships m ON m.room_id=c.room_id WHERE c.id=$1 AND m.user_id=$2)
+        AND ($4::uuid IS NULL OR EXISTS(SELECT 1 FROM attachments WHERE id=$4 AND uploaded_by=$2))
+        RETURNING id,channel_id AS "channelId",coalesce(body,'') AS body,created_at AS "createdAt"`, [channelId, user.id, clean, attachmentId ?? null]);
+      if (!result.rows[0]) return; let attachment = null;
+      if (attachmentId) { const file = await query<any>("SELECT id,filename,mime_type AS \"mimeType\",size_bytes AS \"sizeBytes\" FROM attachments WHERE id=$1", [attachmentId]); if (file.rows[0]) attachment = { ...file.rows[0], url: `/api/attachments/${attachmentId}` }; }
+      io.to(`channel:${channelId}`).emit("message:new", { ...result.rows[0], author: user, attachment });
+    });
+    socket.on("call:join", async (channelId) => { const allowed = await query("SELECT 1 FROM channels c JOIN memberships m ON m.room_id=c.room_id WHERE c.id=$1 AND c.kind='voice' AND m.user_id=$2 AND (m.role IN ('owner','admin') OR NOT EXISTS(SELECT 1 FROM channel_access ca WHERE ca.channel_id=c.id) OR EXISTS(SELECT 1 FROM channel_access ca WHERE ca.channel_id=c.id AND ca.user_id=$2))", [channelId, user.id]); if (!allowed.rowCount) return; const room = `call:${channelId}`; const peers = await io.in(room).fetchSockets(); socket.join(room); for (const peer of peers) { peer.emit("webrtc:peer-joined", { socketId: socket.id, user }); } });
     socket.on("call:leave", (channelId) => { socket.leave(`call:${channelId}`); socket.to(`call:${channelId}`).emit("webrtc:peer-left", { socketId: socket.id }); });
     socket.on("webrtc:signal", ({ target, signal }) => io.to(target).emit("webrtc:signal", { from: socket.id, signal }));
     socket.on("media:update", ({ channelId, state }) => socket.to(`channel:${channelId}`).emit("media:state", state));
