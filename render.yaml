@@ -4,7 +4,7 @@ services:
     runtime: node
     plan: free
     buildCommand: pnpm install --no-frozen-lockfile && pnpm --filter @friendcord/shared build && pnpm --filter @friendcord/server build
-    startCommand: pnpm run db:migrate && pnpm --filter @friendcord/server start
+    startCommand: pnpm --filter @friendcord/server db:migrate && pnpm --filter @friendcord/server start
     healthCheckPath: /api/health
     envVars:
       - key: NODE_VERSION
