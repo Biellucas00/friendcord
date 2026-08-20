@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { config } from "./config.js";
-export interface AuthUser { id: string; username: string; displayName: string; siteRole?: "user" | "superadmin" }
+export interface AuthUser { id: string; username: string; displayName: string; siteRole?: "user" | "superadmin"; avatarUrl?: string | null }
 declare global { namespace Express { interface Request { user?: AuthUser } } }
 export const signToken = (user: AuthUser) => jwt.sign(user, config.JWT_SECRET, { expiresIn: "7d" });
 export const readToken = (token: string) => jwt.verify(token, config.JWT_SECRET) as AuthUser;

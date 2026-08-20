@@ -1,0 +1,29 @@
+.avatar { overflow: hidden; }
+.avatar img, .server-card > span img, .server-rail button img { width: 100%; height: 100%; object-fit: cover; }
+.avatar-large { width: 74px; height: 74px; font-size: 26px; }
+.profile-summary { min-width: 0; flex: 1; display: grid; text-align: left; background: transparent; padding: 2px; }
+.profile-summary strong, .profile-summary small { overflow: hidden; text-overflow: ellipsis; }
+.profile-summary small { color: #8d929f; }
+.server-card { background-position: center; background-size: cover; }
+.server-card > span, .server-rail button { overflow: hidden; }
+.channels header { background-size: cover; background-position: center; }
+.server-actions { display: flex !important; gap: 4px; }
+.server-actions button { padding: 6px; }
+.members .member { width: 100%; border: 0; background: transparent; padding: 5px 3px; text-align: left; color: inherit; }
+.members .member:hover { background: #292d37; }
+.offline-member { opacity: .58; }
+.video-tile .audio-only-video { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.call-avatar { position: absolute; inset: 0; display: grid; place-items: center; background: radial-gradient(circle, color-mix(in srgb, var(--primary) 18%, #1d2028), #0c0e12); }
+.call-avatar img, .call-avatar span { width: 92px; height: 92px; border-radius: 50%; object-fit: cover; background: var(--accent-bg); display: grid; place-items: center; font-size: 36px; font-weight: 800; }
+.video-tile.sharing { outline: 2px solid var(--secondary); }
+.control-off { background: #55343b; color: #ffc5cc; }
+.copy-row { display: flex; gap: 8px; }
+.copy-row input { min-width: 0; flex: 1; }
+.profile-banner { width: 100%; height: 145px; object-fit: cover; border-radius: 12px; }
+.profile-head { display: flex; align-items: center; gap: 14px; }
+.profile-head > div { display: grid; }
+.profile-head small, .profile-form label small { color: #9297a4; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.profile-form hr { width: 100%; border: 0; border-top: 1px solid #3b3f4b; }
+.profile-form h3 { margin: 0; }
+@media (max-width: 720px) { .home-nav footer > .profile-summary { display: none; } .form-grid { grid-template-columns: 1fr; } }
