@@ -1,0 +1,24 @@
+name: Aplicar FriendCord v2
+on:
+  push:
+    paths:
+      - FriendCord-v2-1b0bbf7e54cd46269dc2c4ba6f12339a.zip
+      - .github/workflows/unpack.yml
+permissions:
+  contents: write
+jobs:
+  unpack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restaurar estrutura correta
+        run: |
+          unzip -o FriendCord-v2-1b0bbf7e54cd46269dc2c4ba6f12339a.zip
+          rm -f FriendCord-v2-1b0bbf7e54cd46269dc2c4ba6f12339a.zip
+          rm -f .github/workflows/unpack.yml
+          rm -f 001_initial.sql 002_social_admin_media.sql App.tsx MediaRoom.tsx VideoTile.tsx api.ts auth.ts config.ts db.ts index.html index.ts main.tsx migrate.ts routes.ts seed.ts socket.ts styles.css tsconfig.app.json tsconfig.json useWebRTC.ts vite-env.d.ts vite.config.ts
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Corrigir estrutura e aplicar FriendCord v2"
+          git push
