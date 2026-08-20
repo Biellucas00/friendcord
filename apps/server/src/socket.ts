@@ -49,6 +49,11 @@ export function attachSocket(server: Server) {
       if (!result.rows[0]) return; let attachment = null;
       if (attachmentId) { const file = await query<any>("SELECT id,filename,mime_type AS \"mimeType\",size_bytes AS \"sizeBytes\" FROM attachments WHERE id=$1", [attachmentId]); if (file.rows[0]) attachment = { ...file.rows[0], url: `/api/attachments/${attachmentId}` }; }
       io.to(`channel:${channelId}`).emit("message:new", { ...result.rows[0], author: user, attachment });
+      const mentionedUsernames = [...new Set([...clean.matchAll(/@([a-zA-Z0-9_]{3,32})/g)].map((match) => match[1].toLowerCase()))].filter((username) => username !== user.username.toLowerCase() && username !== "gpt" && username !== "gemini");
+      if (mentionedUsernames.length) {
+        const mentionedUsers = await query<{ id: string; username: string }>(`SELECT u.id,u.username FROM users u JOIN memberships m ON m.user_id=u.id JOIN channels c ON c.room_id=m.room_id WHERE c.id=$1 AND lower(u.username)=ANY($2::text[])`, [channelId, mentionedUsernames]);
+        mentionedUsers.rows.forEach((mentioned) => io.to(`user:${mentioned.id}`).emit("notification", { title: `@${user.username} mencionou você`, body: clean.slice(0, 160) }));
+      }
     });
     socket.on("dm:send", async ({ receiverId, body, attachmentId }) => {
       const clean = body.trim().slice(0, 2000); if (!clean && !attachmentId) return;
@@ -63,7 +68,19 @@ export function attachSocket(server: Server) {
       const bot = (await query<any>("INSERT INTO users(username,display_name,real_name,password_hash,custom_status) VALUES($1,$2,$2,'DISABLED_AI_ACCOUNT','Assistente de IA') ON CONFLICT(username) DO UPDATE SET display_name=EXCLUDED.display_name RETURNING id,username,display_name AS \"displayName\",custom_status AS \"customStatus\"", [botUsername, botName])).rows[0];
       if (channelId) { const allowed = await query("SELECT 1 FROM channels c JOIN memberships m ON m.room_id=c.room_id WHERE c.id=$1 AND m.user_id=$2", [channelId, user.id]); if (!allowed.rowCount) return; const message = (await query<any>("INSERT INTO messages(channel_id,author_id,body) VALUES($1,$2,$3) RETURNING id,channel_id AS \"channelId\",body,created_at AS \"createdAt\"", [channelId, bot.id, answer])).rows[0]; io.to(`channel:${channelId}`).emit("message:new", { ...message, author: bot, attachment: null }); }
       else if (receiverId) { const message = (await query<any>("INSERT INTO direct_messages(sender_id,receiver_id,context_peer_id,body) VALUES($1,$2,$3,$4) RETURNING id,sender_id AS \"senderId\",receiver_id AS \"receiverId\",body,created_at AS \"createdAt\"", [bot.id, user.id, receiverId, answer])).rows[0]; io.to(`user:${user.id}`).emit("dm:new", { ...message, author: bot, attachment: null }); }
-    } catch (error) { socket.emit("notification", { title: provider === "gpt" ? "GPT" : "Gemini", body: (error as Error).message }); } });
+    } catch (error) {
+      const botName = provider === "gpt" ? "FriendGPT" : "FriendGemini";
+      const botUsername = provider === "gpt" ? "friendgpt" : "friendgemini";
+      const failure = `${(error as Error).message}. O administrador precisa configurar a chave oficial dessa IA no Render.`;
+      const bot = (await query<any>("INSERT INTO users(username,display_name,real_name,password_hash,custom_status) VALUES($1,$2,$2,'DISABLED_AI_ACCOUNT','Assistente de IA') ON CONFLICT(username) DO UPDATE SET display_name=EXCLUDED.display_name RETURNING id,username,display_name AS \"displayName\",custom_status AS \"customStatus\"", [botUsername, botName])).rows[0];
+      if (channelId) {
+        const message = (await query<any>("INSERT INTO messages(channel_id,author_id,body) SELECT $1,$2,$3 WHERE EXISTS(SELECT 1 FROM channels c JOIN memberships m ON m.room_id=c.room_id WHERE c.id=$1 AND m.user_id=$4) RETURNING id,channel_id AS \"channelId\",body,created_at AS \"createdAt\"", [channelId, bot.id, failure, user.id])).rows[0];
+        if (message) io.to(`channel:${channelId}`).emit("message:new", { ...message, author: bot, attachment: null });
+      } else if (receiverId) {
+        const message = (await query<any>("INSERT INTO direct_messages(sender_id,receiver_id,context_peer_id,body) VALUES($1,$2,$3,$4) RETURNING id,sender_id AS \"senderId\",receiver_id AS \"receiverId\",body,created_at AS \"createdAt\"", [bot.id, user.id, receiverId, failure])).rows[0];
+        io.to(`user:${user.id}`).emit("dm:new", { ...message, author: bot, attachment: null });
+      } else socket.emit("notification", { title: botName, body: failure });
+    } });
     socket.on("call:join", async (channelId) => { const allowed = await query("SELECT 1 FROM channels c JOIN memberships m ON m.room_id=c.room_id WHERE c.id=$1 AND c.kind='voice' AND m.user_id=$2 AND (m.role IN ('owner','admin') OR NOT EXISTS(SELECT 1 FROM channel_access ca WHERE ca.channel_id=c.id) OR EXISTS(SELECT 1 FROM channel_access ca WHERE ca.channel_id=c.id AND ca.user_id=$2))", [channelId, user.id]); if (!allowed.rowCount) return; const room = `call:${channelId}`; const peers = await io.in(room).fetchSockets(); socket.join(room); for (const peer of peers) { peer.emit("webrtc:peer-joined", { socketId: socket.id, user }); if (peer.data.callState) socket.emit("call:state", { socketId: peer.id, user: peer.data.user as AuthUser, ...peer.data.callState }); } socket.data.callChannelId = channelId; socket.data.callState = { audioEnabled: true, videoEnabled: false, screenSharing: false }; socket.to(room).emit("call:state", { socketId: socket.id, user, ...socket.data.callState }); });
     socket.on("call:leave", (channelId) => { socket.leave(`call:${channelId}`); socket.to(`call:${channelId}`).emit("webrtc:peer-left", { socketId: socket.id }); });
     socket.on("call:state", ({ channelId, audioEnabled, videoEnabled, screenSharing }) => { if (!socket.rooms.has(`call:${channelId}`)) return; socket.data.callState = { audioEnabled, videoEnabled, screenSharing }; socket.to(`call:${channelId}`).emit("call:state", { socketId: socket.id, user, audioEnabled, videoEnabled, screenSharing }); });
