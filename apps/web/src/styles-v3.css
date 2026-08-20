@@ -308,6 +308,13 @@ button:active { transform: translateY(0) scale(.98); }
 .user-card h2, .user-card p { margin: 0; }
 .user-card blockquote { margin: 8px 0; width: 100%; background: #191b22; padding: 12px; border-radius: 9px; }
 .admin-page > h2 { margin-top: 28px; }
+.admin-user-search { max-width: 680px; display: flex; align-items: center; gap: 8px; padding: 7px 7px 7px 14px; margin-bottom: 14px; border: 1px solid #3b404d; border-radius: 13px; background: #171a21; }
+.admin-user-search > span { color: #a99cff; font-size: 21px; font-weight: 850; }
+.admin-user-search input { min-width: 0; flex: 1; border: 0; background: transparent; box-shadow: none; }
+.admin-search-results { max-width: 820px; margin-bottom: 18px; padding: 14px; border: 1px solid #3b4352; border-radius: 14px; background: #1b1f27; }
+.admin-search-results h3 { margin: 0 0 10px; }
+.admin-search-empty { color: #9da3af; }
+.admin-list { max-width: 820px; }
 .roles-panel { gap: 9px; }
 .role-member { display: flex !important; grid-template-columns: none !important; align-items: center; gap: 9px; background: #1b1d24; padding: 8px; border-radius: 9px; }
 .role-member > span { flex: 1; }
@@ -324,4 +331,7 @@ button:active { transform: translateY(0) scale(.98); }
   .personal-server-settings { left: auto; right: 8px; top: 11px; z-index: 72; }
   .floating-media { left: 64px; right: 7px; bottom: calc(70px + env(safe-area-inset-bottom)); width: auto; max-height: 65vh; }
   .media-launcher, .media-bot-bubble { right: 8px; bottom: calc(72px + env(safe-area-inset-bottom)); }
+  .admin-user-search { align-items: stretch; flex-wrap: wrap; }
+  .admin-user-search input { min-width: calc(100% - 38px); }
+  .admin-user-search button { width: 100%; }
 }
