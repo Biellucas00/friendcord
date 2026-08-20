@@ -1,0 +1,24 @@
+name: Apply FriendCord v14
+on:
+  push:
+    branches: [main]
+    paths:
+      - FriendCord-v14-sidebar-context.zip
+      - .github/workflows/apply-v14.yml
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply patch
+        run: |
+          unzip -o FriendCord-v14-sidebar-context.zip
+          rm FriendCord-v14-sidebar-context.zip
+          rm .github/workflows/apply-v14.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m 'Aplicar coluna, clique direito e ícones'
+          git push
