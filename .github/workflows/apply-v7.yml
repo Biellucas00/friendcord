@@ -1,0 +1,24 @@
+name: Aplicar FriendCord v7
+on:
+  push:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Aplicar pacote
+        run: |
+          unzip -o FriendCord-v7-patch.zip
+          rm -f FriendCord-v7-patch.zip .github/workflows/apply-v7.yml
+          echo "friendcord-v7-$(date +%s)" > .deploy-version.txt
+      - name: Publicar arquivos
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Aplicar pacote completo FriendCord v7"
+          git push
