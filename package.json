@@ -1,0 +1,14 @@
+{
+  "name": "friendcord",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev": "concurrently -n server,web -c blue,magenta \"npm run dev -w @friendcord/server\" \"npm run dev -w @friendcord/web\"",
+    "build": "npm run build -w @friendcord/shared && npm run build -w @friendcord/server && npm run build -w @friendcord/web",
+    "db:migrate": "npm run db:migrate -w @friendcord/server",
+    "db:seed": "npm run db:seed -w @friendcord/server"
+  },
+  "devDependencies": { "concurrently": "^9.1.2" },
+  "engines": { "node": ">=20" }
+}
