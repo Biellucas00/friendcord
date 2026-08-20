@@ -82,11 +82,11 @@ button:active { transform: translateY(0) scale(.98); }
 .call-mini-users span { display: grid; min-width: 0; }
 .call-mini-users strong { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .call-mini-users small { font-size: 11px; color: #9ca9a3; }
-.call-self-row { grid-template-columns: 28px minmax(0, 1fr) 94px !important; min-height: 52px; }
-.call-self-row > .avatar { grid-row: 1 / span 2; }
-.call-self-row > span { grid-column: 2; grid-row: 1; align-self: end; }
-.call-self-row > .call-user-status { grid-column: 2; grid-row: 2; align-self: start; }
-.call-session-actions { grid-column: 3; grid-row: 1 / span 2; display: grid; grid-template-columns: minmax(0, 1fr) 36px; gap: 4px; align-self: stretch; }
+.call-self-row { grid-template-columns: 28px minmax(0, 1fr) auto !important; grid-template-rows: 32px 38px; min-height: 78px; }
+.call-self-row > .avatar { grid-column: 1; grid-row: 1; }
+.call-self-row > span { grid-column: 2; grid-row: 1; align-self: center; }
+.call-self-row > .call-user-status { grid-column: 3; grid-row: 1; align-self: center; }
+.call-session-actions { grid-column: 1 / -1; grid-row: 2; display: grid; grid-template-columns: minmax(0, 1fr) 40px; gap: 5px; align-self: stretch; }
 .call-session-actions .split-device-control { min-width: 0; }
 .call-session-actions button { min-height: 38px; padding: 5px; font-size: 17px; }
 .call-session-actions .disconnect-call { background: #a83f50; color: white; font-size: 20px; }
