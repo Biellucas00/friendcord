@@ -30,7 +30,35 @@ async function askAssistant(provider: "gpt" | "gemini", prompt: string) {
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(config.GEMINI_MODEL)}:generateContent?key=${encodeURIComponent(config.GEMINI_API_KEY)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt.slice(0, 6000) }] }] }) });
   if (!response.ok) throw new Error("O Gemini recusou a solicitação"); const data = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }; return data.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("") ?? "Sem resposta.";
 }
-const categoryAccessSql = (userReference: string, siteRoleReference: string) => `(c.category_id IS NULL OR EXISTS(SELECT 1 FROM channel_categories cc WHERE cc.id=c.category_id AND (${siteRoleReference}='superadmin' OR m.role IN ('owner','admin') OR EXISTS(SELECT 1 FROM category_role_permissions crp JOIN server_role_members srm ON srm.role_id=crp.role_id WHERE crp.category_id=cc.id AND srm.user_id=${userReference} AND coalesce((crp.permissions->>'viewChannels')::boolean,false)) OR (NOT EXISTS(SELECT 1 FROM category_role_permissions crp JOIN server_role_members srm ON srm.role_id=crp.role_id WHERE crp.category_id=cc.id AND srm.user_id=${userReference} AND (crp.permissions->>'viewChannels')::boolean=false) AND NOT EXISTS(SELECT 1 FROM category_role_permissions crp WHERE crp.category_id=cc.id AND coalesce((crp.permissions->>'viewChannels')::boolean,false)))))`;
+const categoryAccessSql = (userReference: string, siteRoleReference: string) => `(
+  c.category_id IS NULL
+  OR ${siteRoleReference}='superadmin'
+  OR m.role IN ('owner','admin')
+  OR EXISTS (
+    SELECT 1
+    FROM category_role_permissions crp
+    JOIN server_role_members srm ON srm.role_id=crp.role_id
+    WHERE crp.category_id=c.category_id
+      AND srm.user_id=${userReference}
+      AND coalesce((crp.permissions->>'viewChannels')::boolean,false)
+  )
+  OR (
+    NOT EXISTS (
+      SELECT 1
+      FROM category_role_permissions crp
+      JOIN server_role_members srm ON srm.role_id=crp.role_id
+      WHERE crp.category_id=c.category_id
+        AND srm.user_id=${userReference}
+        AND (crp.permissions->>'viewChannels')::boolean=false
+    )
+    AND NOT EXISTS (
+      SELECT 1
+      FROM category_role_permissions crp
+      WHERE crp.category_id=c.category_id
+        AND coalesce((crp.permissions->>'viewChannels')::boolean,false)
+    )
+  )
+)`;
 export function attachSocket(server: Server) {
   const io = new SocketServer<ClientToServerEvents, ServerToClientEvents>(server, { cors: { origin: config.CLIENT_ORIGIN } });
   activeIo = io;
