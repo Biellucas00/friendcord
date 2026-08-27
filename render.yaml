@@ -3,8 +3,8 @@ services:
     name: friendcord-api
     runtime: node
     plan: free
-    buildCommand: pnpm install --no-frozen-lockfile && pnpm --filter @friendcord/shared build && pnpm --filter @friendcord/server build
-    startCommand: pnpm --filter @friendcord/server db:migrate && pnpm --filter @friendcord/server start
+    buildCommand: npm install && npm run build -w @friendcord/shared && npm run build -w @friendcord/server
+    startCommand: npm run db:migrate && npm run start -w @friendcord/server
     healthCheckPath: /api/health
     envVars:
       - key: NODE_VERSION
@@ -26,7 +26,7 @@ services:
   - type: web
     name: friendcord-web
     runtime: static
-    buildCommand: pnpm install --no-frozen-lockfile && pnpm --filter @friendcord/shared build && pnpm --filter @friendcord/web build
+    buildCommand: npm install && npm run build -w @friendcord/shared && npm run build -w @friendcord/web
     staticPublishPath: apps/web/dist
     envVars:
       - key: VITE_API_URL
