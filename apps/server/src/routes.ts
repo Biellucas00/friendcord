@@ -20,7 +20,35 @@ routes.post("/diagnostics/upload", upload.single("file"), (request, response) =>
 const userSelect = `id,username,display_name AS "displayName",real_name AS "realName",email,site_role AS "siteRole",custom_status AS "customStatus",CASE WHEN avatar_id IS NULL THEN NULL ELSE '/api/attachments/'||avatar_id END AS "avatarUrl",CASE WHEN banner_id IS NULL THEN NULL ELSE '/api/attachments/'||banner_id END AS "bannerUrl"`;
 const roomMediaSelect = `CASE WHEN r.icon_id IS NULL THEN NULL ELSE '/api/attachments/'||r.icon_id END AS "iconUrl",CASE WHEN r.banner_id IS NULL THEN NULL ELSE '/api/attachments/'||r.banner_id END AS "bannerUrl"`;
 type RolePermissions = Record<string, boolean>;
-const categoryVisibleForChannel = `(c.category_id IS NULL OR EXISTS(SELECT 1 FROM channel_categories cc WHERE cc.id=c.category_id AND ($3='superadmin' OR m.role IN ('owner','admin') OR EXISTS(SELECT 1 FROM category_role_permissions crp JOIN server_role_members srm ON srm.role_id=crp.role_id WHERE crp.category_id=cc.id AND srm.user_id=$2 AND coalesce((crp.permissions->>'viewChannels')::boolean,false)) OR (NOT EXISTS(SELECT 1 FROM category_role_permissions crp JOIN server_role_members srm ON srm.role_id=crp.role_id WHERE crp.category_id=cc.id AND srm.user_id=$2 AND (crp.permissions->>'viewChannels')::boolean=false) AND NOT EXISTS(SELECT 1 FROM category_role_permissions crp WHERE crp.category_id=cc.id AND coalesce((crp.permissions->>'viewChannels')::boolean,false)))))`;
+const categoryVisibleForChannel = `(
+  c.category_id IS NULL
+  OR $3='superadmin'
+  OR m.role IN ('owner','admin')
+  OR EXISTS (
+    SELECT 1
+    FROM category_role_permissions crp
+    JOIN server_role_members srm ON srm.role_id=crp.role_id
+    WHERE crp.category_id=c.category_id
+      AND srm.user_id=$2
+      AND coalesce((crp.permissions->>'viewChannels')::boolean,false)
+  )
+  OR (
+    NOT EXISTS (
+      SELECT 1
+      FROM category_role_permissions crp
+      JOIN server_role_members srm ON srm.role_id=crp.role_id
+      WHERE crp.category_id=c.category_id
+        AND srm.user_id=$2
+        AND (crp.permissions->>'viewChannels')::boolean=false
+    )
+    AND NOT EXISTS (
+      SELECT 1
+      FROM category_role_permissions crp
+      WHERE crp.category_id=c.category_id
+        AND coalesce((crp.permissions->>'viewChannels')::boolean,false)
+    )
+  )
+)`;
 
 routes.get("/health", (_req, res) => res.json({ ok: true }));
 routes.get("/attachments/:id", async (req, res, next) => { try {
