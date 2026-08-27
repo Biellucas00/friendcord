@@ -175,7 +175,7 @@ export default function App() {
     const roster = ({ channelId: nextChannelId, participants }: { channelId: string; participants: CallParticipant[] }) => {
       const previous = callRostersRef.current[nextChannelId] ?? [];
       const cameraStarted = participants.find((participant) => participant.videoEnabled && previous.some((item) => item.user.id === participant.user.id && !item.videoEnabled));
-      if (cameraStarted) { setError(`📹 ${cameraStarted.user.id===user.id?"Sua câmera foi ligada":`${cameraStarted.user.displayName} ligou a câmera`}.`); setCameraDockOpen(true); playSignal("camera"); }
+      if (cameraStarted) { setError(`📹 ${cameraStarted.user.id===user.id?"Sua câmera foi ligada":`${cameraStarted.user.displayName} ligou a câmera`}.`); playSignal("camera"); }
       const next = { ...callRostersRef.current, [nextChannelId]: participants };
       callRostersRef.current = next;
       setCallRosters(next);
