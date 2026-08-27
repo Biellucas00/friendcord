@@ -1,4 +1,6 @@
 .avatar { overflow: hidden; }
+.auth-help { margin: -6px 0 6px; color: #aeb5c4; text-align: center; }
+.auth-success { padding: 10px 12px; border: 1px solid #2f8f68; border-radius: 9px; background: #173c30; color: #a7f3d0; }
 .avatar img, .server-card > span img, .server-rail button img { width: 100%; height: 100%; object-fit: cover; }
 .avatar-large { width: 74px; height: 74px; font-size: 26px; }
 .profile-summary { min-width: 0; flex: 1; display: grid; text-align: left; background: transparent; padding: 2px; }
@@ -16,6 +18,8 @@
 .call-avatar { position: absolute; inset: 0; display: grid; place-items: center; background: radial-gradient(circle, color-mix(in srgb, var(--primary) 18%, #1d2028), #0c0e12); }
 .call-avatar img, .call-avatar span { width: 92px; height: 92px; border-radius: 50%; object-fit: cover; background: var(--accent-bg); display: grid; place-items: center; font-size: 36px; font-weight: 800; }
 .video-tile.sharing { outline: 2px solid var(--secondary); }
+.video-tile.speaking { outline: 3px solid #35d98a; box-shadow: 0 0 0 3px #35d98a35, 0 0 24px #35d98a45; }
+.video-tile video.mirrored-video { transform: scaleX(-1); }
 .control-off { background: #55343b; color: #ffc5cc; }
 .copy-row { display: flex; gap: 8px; }
 .copy-row input { min-width: 0; flex: 1; }
@@ -132,6 +136,19 @@ button:active { transform: translateY(0) scale(.98); }
 .call-stage > header { padding: 14px 20px; border-bottom: 1px solid #2f333e; display: flex; align-items: center; justify-content: space-between; }
 .call-stage h2 { margin: 2px 0; }
 .call-stage small { color: #8f95a3; letter-spacing: .13em; font-weight: 800; }
+.camera-active { background: #236b52 !important; color: #aaffd6; }
+.floating-camera-dock { position: fixed; z-index: 96; width: min(420px, calc(100vw - 16px)); height: min(360px, calc(100dvh - 20px)); min-width: 280px; min-height: 220px; max-width: calc(100vw - 8px); max-height: calc(100dvh - 8px); overflow: auto; resize: both; border: 1px solid #405064; border-radius: 16px; background: #14171e; box-shadow: 0 24px 90px #000c; }
+.floating-camera-dock > header { height: 48px; padding: 8px 10px 8px 14px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #343a47; background: #1d222c; cursor: grab; touch-action: none; user-select: none; }
+.floating-camera-dock > header:active { cursor: grabbing; }
+.floating-camera-dock > header strong { flex: 1; }
+.floating-camera-dock > header span { color: #8f96a3; font-size: 10px; }
+.floating-camera-dock > header button { width: 32px; height: 32px; padding: 0; font-size: 20px; }
+.floating-camera-grid { min-height: calc(100% - 48px); padding: 8px; overflow-y: auto; display: grid; gap: 8px; }
+.call-user-bar.speaking { box-shadow: inset 3px 0 #35d98a; background: #163429; }
+.mic-speaking { color: #67f0ad; box-shadow: 0 0 0 3px #35d98a45; animation: micTalk .7s ease-in-out infinite alternate; }
+.pip-button { position: absolute; z-index: 3; top: 8px; right: 8px; width: 34px; height: 30px; padding: 0; background: #090b0dcc; border: 1px solid #596273; }
+@keyframes micTalk { from { transform: scale(.96); } to { transform: scale(1.08); } }
+.floating-camera-grid .video-tile { min-height: 200px; }
 .stage-grid { padding: 18px; overflow: auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); align-content: center; gap: 14px; background: radial-gradient(circle at 50% 30%, #252a38, #101218 70%); }
 .peer-stage-card { background: #11141a; border: 1px solid #303541; border-radius: 16px; overflow: hidden; }
 .peer-stage-card .video-tile { border-radius: 0; min-height: 260px; }
@@ -277,6 +294,7 @@ button:active { transform: translateY(0) scale(.98); }
 .categorized-row > button:first-child { text-align: left; background: transparent; }
 .categorized-row > button:last-of-type { padding: 5px; background: transparent; }
 .voice-members-inline { grid-column: 1 / -1; padding: 0 8px 7px 22px; display: grid; gap: 4px; }
+.voice-count { min-width: 18px; height: 18px; margin-left: auto; padding: 0 5px; display: inline-grid; place-items: center; border-radius: 9px; background: #344054; color: #dce3ef; font-size: 10px; }
 .voice-members-inline > div { display: flex; align-items: center; gap: 7px; font-size: 12px; }
 .voice-members-inline .avatar { width: 24px; height: 24px; font-size: 10px; }
 .voice-members-inline span { display: flex; gap: 6px; align-items: center; }
@@ -286,6 +304,8 @@ button:active { transform: translateY(0) scale(.98); }
 .voice-members-inline > div:hover { background: #ffffff0b; }
 @media (max-width: 1050px) { .categorized-channels { left: 64px; width: 260px; } }
 @media (max-width: 720px) {
+  .floating-camera-dock { left: 62px !important; top: max(8px, env(safe-area-inset-top)) !important; width: calc(100vw - 68px); max-height: min(440px, calc(100dvh - 90px)); }
+  .floating-camera-grid .video-tile { min-height: 170px; }
   .category-role-card { grid-template-columns: 1fr; }
   html, body, #root { width: 100%; max-width: 100%; height: 100%; height: 100dvh; min-height: 0; overflow: hidden; }
   body { position: fixed; inset: 0; overscroll-behavior: none; }
