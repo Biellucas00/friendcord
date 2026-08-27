@@ -3,7 +3,7 @@ import type { Attachment, CallParticipant, Channel, ChannelCategory, ChatMessage
 import { API_URL, api, getToken, uploadFile } from "./api";
 import { getSocket, resetSocket } from "./socket";
 import { playSignal, useWebRTC, type RemotePeer } from "./hooks/useWebRTC";
-import { useSpeaking, VideoTile } from "./components/VideoTile";
+import { AudioSink, useSpeaking, VideoTile } from "./components/VideoTile";
 import { MediaRoom } from "./components/MediaRoom";
 
 type RoomWithRole = Room & { role: "owner" | "admin" | "member" };
@@ -67,6 +67,7 @@ function PersistentCall({ user, localStream, peers, expanded, setExpanded, audio
   const startCameraDrag = (event: React.PointerEvent<HTMLElement>) => { cameraDrag.current = { offsetX: event.clientX - cameraPosition.x, offsetY: event.clientY - cameraPosition.y }; event.currentTarget.setPointerCapture(event.pointerId); };
   const moveCameraDrag = (event: React.PointerEvent<HTMLElement>) => { if (!cameraDrag.current) return; setCameraPosition({ x: Math.max(6, Math.min(window.innerWidth - 260, event.clientX - cameraDrag.current.offsetX)), y: Math.max(6, Math.min(window.innerHeight - 180, event.clientY - cameraDrag.current.offsetY)) }); };
   return <>
+    <div hidden>{peers.map((peer) => { const preference = preferences[peer.id] ?? { volume: 1, muted: false }; return <AudioSink key={peer.id} stream={peer.stream} muted={outputMuted || preference.muted} volume={preference.volume} outputDeviceId={audioOutputId}/>; })}</div>
     <aside className="persistent-call" onDoubleClick={() => setExpanded(true)}>
       <div className="call-status"><span>◉</span><div><strong>Voz conectada</strong><small>{peers.length + 1} participante(s) · clique 2x para abrir</small></div><div className="call-status-actions"><button className={noiseSuppression?"noise-active":""} title={noiseSuppression?"Supressão de ruído ativa":"Ativar supressão de ruído"} onClick={toggleNoiseSuppression}>≋</button><button className="disconnect-call" title="Desconectar da chamada" onClick={disconnect}>☎</button></div></div>
       <div className="call-primary-actions"><button className={!videoEnabled?"control-off":""} title="Ligar ou desligar câmera" onClick={toggleVideo}>{videoEnabled?"📹":"📷"}</button><div className="split-device-control"><button className={screenSharing?"screen-active":""} title={screenSharing?"Parar compartilhamento":"Compartilhar tela"} onClick={screenSharing?stopScreen:share}>{screenSharing?"⏹":"▣"}</button><button title="Qualidade do compartilhamento" onClick={()=>setDeviceMenu(deviceMenu==="screen"?null:"screen")}>⌃</button></div><button className={showMedia?"media-active":""} title="Abrir mídia e música" onClick={toggleMedia}>♫</button>{activeCameraCount>0&&<button className={cameraDockOpen?"camera-active":""} title="Ver câmeras ativas" onClick={()=>setCameraDockOpen((current)=>!current)}>▣ {activeCameraCount}</button>}<button title="Abrir chamada completa" onClick={()=>setExpanded(true)}>◔</button></div>
