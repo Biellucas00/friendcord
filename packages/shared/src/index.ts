@@ -9,6 +9,7 @@ export interface ChatMessage { id: string; channelId: string; roomId?: string; b
 export interface DirectMessage { id: string; senderId: string; receiverId: string; body: string; createdAt: string; author: PublicUser; attachment?: Attachment | null }
 export interface MessageRequest { id: string; sender: PublicUser; preview: string; createdAt: string }
 export interface MediaState { provider: "youtube" | "spotify"; mediaId: string; mediaType?: string; playing: boolean; positionSeconds: number; updatedAt: number }
+export interface CallParticipant { socketId: string; user: PublicUser; audioEnabled: boolean; videoEnabled: boolean; screenSharing: boolean }
 export interface ServerToClientEvents {
   "message:new": (message: ChatMessage) => void;
   "dm:new": (message: DirectMessage) => void;
@@ -17,6 +18,7 @@ export interface ServerToClientEvents {
   "webrtc:peer-left": (data: { socketId: string }) => void;
   "webrtc:signal": (data: { from: string; signal: unknown }) => void;
   "call:state": (data: { socketId: string; user: PublicUser; audioEnabled: boolean; videoEnabled: boolean; screenSharing: boolean }) => void;
+  "call:roster": (data: { channelId: string; participants: CallParticipant[] }) => void;
   "call:moderated": (data: { action: "mute" | "stop-screen"; by: PublicUser }) => void;
   "attention:receive": (data: { from: PublicUser }) => void;
   "room:member-joined": (data: { roomId: string; user: PublicUser }) => void;
