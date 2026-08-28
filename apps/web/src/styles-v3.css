@@ -147,6 +147,11 @@ button:active { transform: translateY(0) scale(.98); }
 .call-user-bar.speaking { box-shadow: inset 3px 0 #35d98a; background: #163429; }
 .mic-speaking { color: #67f0ad; box-shadow: 0 0 0 3px #35d98a45; animation: micTalk .7s ease-in-out infinite alternate; }
 .pip-button { position: absolute; z-index: 3; top: 8px; right: 8px; width: 34px; height: 30px; padding: 0; background: #090b0dcc; border: 1px solid #596273; }
+.video-overlay-actions { position: absolute; z-index: 4; top: 8px; right: 8px; display: flex; gap: 6px; }
+.video-overlay-actions .pip-button { position: static; }
+.fullscreen-button { width: 38px; height: 30px; padding: 0; background: #090b0dcc; border: 1px solid #596273; font-size: 20px; }
+.live-badge { position: absolute; z-index: 4; top: 10px; left: 10px; padding: 5px 8px; border-radius: 6px; background: #d91f3dcc; color: white; font-size: 11px; letter-spacing: .06em; }
+.live-share-button { width: auto !important; min-width: 72px; height: 25px; padding: 0 7px; border-radius: 7px; background: #b41931 !important; color: white !important; font-size: 10px !important; font-weight: 900; white-space: nowrap; }
 @keyframes micTalk { from { transform: scale(.96); } to { transform: scale(1.08); } }
 .floating-camera-grid .video-tile { min-height: 200px; }
 .stage-grid { padding: 18px; overflow: auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); align-content: center; gap: 14px; background: radial-gradient(circle at 50% 30%, #252a38, #101218 70%); }
