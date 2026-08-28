@@ -490,3 +490,4 @@ button:active { transform: translateY(0) scale(.98); }
   .floating-media .media-content { max-height: 235px; }
 }
 .auth-field-help { color: #969dab; font-size: 12px; line-height: 1.35; }
+.audio-sinks { position: fixed; width: 1px; height: 1px; overflow: hidden; pointer-events: none; opacity: .001; }
