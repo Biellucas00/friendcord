@@ -184,6 +184,7 @@ export default function App() {
     socket.on("call:roster", roster);
     return () => { socket.off("call:roster", roster); };
   }, [user?.id]);
+  useEffect(() => { if (!user || !roomId) return; getSocket().emit("call:roster-request", roomId); }, [roomId, user?.id]);
   useEffect(() => { if (view === "admin" && user?.siteRole === "superadmin") Promise.all([api<AdminRoom[]>("/admin/rooms"), api<PublicUser[]>("/admin/users")]).then(([nextRooms, nextUsers]) => { setAdminRooms(nextRooms); setAdminUsers(nextUsers); }).catch((cause) => setError(`Admin: ${(cause as Error).message}`)); }, [view, user?.siteRole]);
   useEffect(() => { if (!roomId || view !== "room") return; Promise.all([api<Channel[]>(`/rooms/${roomId}/channels`), api<PublicUser[]>(`/rooms/${roomId}/members`), api<ChannelCategory[]>(`/rooms/${roomId}/categories`),api<RolePermissions>(`/rooms/${roomId}/my-permissions`)]).then(([nextChannels, nextMembers, nextCategories,nextPermissions]) => { setChannels(nextChannels); setMembers(nextMembers); setCategories(nextCategories); setMyPermissions(nextPermissions); setChannelId(nextChannels.find((item) => item.kind === "text")?.id ?? ""); }); }, [roomId, view]);
   useEffect(()=>{if(!channelId)return;api<RolePermissions>(`/channels/${channelId}/my-permissions`).then(setChannelPermissions).catch(()=>setChannelPermissions({}));},[channelId]);
