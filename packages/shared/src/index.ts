@@ -8,7 +8,7 @@ export interface Attachment { id: string; filename: string; mimeType: string; si
 export interface ChatMessage { id: string; channelId: string; roomId?: string; body: string; createdAt: string; author: PublicUser; attachment?: Attachment | null }
 export interface DirectMessage { id: string; senderId: string; receiverId: string; body: string; createdAt: string; author: PublicUser; attachment?: Attachment | null }
 export interface MessageRequest { id: string; sender: PublicUser; preview: string; createdAt: string }
-export interface MediaState { provider: "youtube" | "spotify"; mediaId: string; mediaType?: string; playing: boolean; positionSeconds: number; updatedAt: number }
+export interface MediaState { provider: "youtube" | "spotify" | "soundcloud"; mediaId: string; mediaType?: string; playing: boolean; positionSeconds: number; updatedAt: number }
 export interface CallParticipant { socketId: string; user: PublicUser; audioEnabled: boolean; videoEnabled: boolean; screenSharing: boolean }
 export interface ServerToClientEvents {
   "message:new": (message: ChatMessage) => void;
