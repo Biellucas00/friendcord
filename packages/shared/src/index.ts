@@ -32,6 +32,7 @@ export interface ClientToServerEvents {
   "dm:send": (data: { receiverId: string; body: string; attachmentId?: string }) => void;
   "ai:ask": (data: { channelId?: string; receiverId?: string; provider: "gpt" | "gemini"; prompt: string }) => void;
   "call:join": (channelId: string) => void;
+  "call:roster-request": (roomId: string) => void;
   "call:leave": (channelId: string) => void;
   "call:state": (data: { channelId: string; audioEnabled: boolean; videoEnabled: boolean; screenSharing: boolean }) => void;
   "call:moderate": (data: { channelId: string; targetSocketId: string; action: "mute" | "stop-screen" }) => void;
