@@ -465,6 +465,8 @@ button:active { transform: translateY(0) scale(.98); }
 .floating-media .media-content { min-width: 0; min-height: 0; position: relative; margin-top: 9px; overflow: hidden; border-radius: 12px; background: #090b10; }
 .floating-media .embed { display: block; width: 100%; height: auto; min-height: 0; margin: 0; border: 0; aspect-ratio: 16 / 9; }
 .floating-media .spotify-embed { height: 152px; aspect-ratio: auto; }
+.floating-media .soundcloud-embed { height: 166px; aspect-ratio: auto; background: #11141a; }
+.media-official-link { display: inline-flex; margin-top: 8px; color: #b9afff; font-size: 12px; text-decoration: none; }
 .media-fallback { inset: 0; min-width: 0; }
 .media-controls { min-width: 0; display: grid; grid-template-columns: auto minmax(190px, 1fr); align-items: center; gap: 9px; margin-top: 9px; }
 .media-transport { min-width: 0; display: grid; grid-template-columns: repeat(4, 42px); gap: 6px; }
