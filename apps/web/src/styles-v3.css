@@ -489,3 +489,4 @@ button:active { transform: translateY(0) scale(.98); }
   .media-transport { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .floating-media .media-content { max-height: 235px; }
 }
+.auth-field-help { color: #969dab; font-size: 12px; line-height: 1.35; }
