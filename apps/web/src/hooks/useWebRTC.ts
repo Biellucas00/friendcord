@@ -32,5 +32,36 @@ export function useWebRTC() {
   const shareScreen = useCallback(async (quality: Quality) => { if (!streamRef.current || screenTrackRef.current) return; const display = await navigator.mediaDevices.getDisplayMedia({ video: { width: { ideal: quality.width }, height: { ideal: quality.height }, frameRate: { ideal: quality.frameRate, max: quality.frameRate } }, audio: true }); const screenTrack = display.getVideoTracks()[0]; if ("contentHint" in screenTrack) screenTrack.contentHint = "detail"; screenTrackRef.current = screenTrack; const oldVisibleTrack = streamRef.current.getVideoTracks()[0]; if (oldVisibleTrack) streamRef.current.removeTrack(oldVisibleTrack); streamRef.current.addTrack(screenTrack); setLocalStream(new MediaStream(streamRef.current.getTracks())); setScreenSharing(true); publishState({ audioEnabled, videoEnabled, screenSharing: true }); playSignal("share"); screenTrack.onended = () => finishScreenSharing(screenTrack); void Promise.all([...peers.current.entries()].map(async ([id, peer]) => { let sender = peer.getSenders().find((item) => item.track?.kind === "video"); if (sender) await sender.replaceTrack(screenTrack); else { sender = peer.addTrack(screenTrack, streamRef.current!); await negotiate(id, peer); } const parameters = sender.getParameters(); parameters.encodings = parameters.encodings?.length ? parameters.encodings : [{}]; parameters.encodings[0].maxBitrate = quality.height >= 2160 ? 25_000_000 : quality.height >= 1440 ? 16_000_000 : 10_000_000; parameters.degradationPreference = "maintain-resolution"; await sender.setParameters(parameters).catch(() => undefined); })).catch(() => undefined); }, [audioEnabled, finishScreenSharing, negotiate, publishState, videoEnabled]);
   useEffect(() => { const socket = getSocket(); const peerJoined = async ({ socketId, user }: { socketId: string; user: PublicUser }) => { peerUsers.current.set(socketId, user); updateRemote(socketId); const peer = makePeer(socketId); await negotiate(socketId, peer); playSignal("join"); }; const signal = async ({ from, signal }: { from: string; signal: unknown }) => { const peer = makePeer(from); const data = signal as { description?: RTCSessionDescriptionInit; candidate?: RTCIceCandidateInit }; try { if (data.description) { await peer.setRemoteDescription(data.description); if (data.description.type === "offer") { const answer = await peer.createAnswer(); await peer.setLocalDescription(answer); socket.emit("webrtc:signal", { target: from, signal: { description: peer.localDescription } }); } } else if (data.candidate) await peer.addIceCandidate(data.candidate); } catch (error) { console.warn("Sinal WebRTC ignorado", error); } }; const left = ({ socketId }: { socketId: string }) => { peers.current.get(socketId)?.close(); peers.current.delete(socketId); peerUsers.current.delete(socketId); peerStates.current.delete(socketId); setRemotePeers((items) => items.filter((item) => item.id !== socketId)); playSignal("leave"); }; const state = ({ socketId, user, audioEnabled: remoteAudio, videoEnabled: remoteVideo, screenSharing: remoteScreen }: { socketId: string; user: PublicUser; audioEnabled: boolean; videoEnabled: boolean; screenSharing: boolean }) => { const previous = peerStates.current.get(socketId); peerUsers.current.set(socketId, user); peerStates.current.set(socketId, { audioEnabled: remoteAudio, videoEnabled: remoteVideo, screenSharing: remoteScreen }); updateRemote(socketId); if (previous && previous.screenSharing !== remoteScreen) playSignal("share"); if (previous && !previous.videoEnabled && remoteVideo) playSignal("camera"); }; socket.on("webrtc:peer-joined", peerJoined); socket.on("webrtc:signal", signal); socket.on("webrtc:peer-left", left); socket.on("call:state", state); return () => { socket.off("webrtc:peer-joined", peerJoined); socket.off("webrtc:signal", signal); socket.off("webrtc:peer-left", left); socket.off("call:state", state); }; }, [makePeer, negotiate, updateRemote]);
   useEffect(() => { const socket = getSocket(); const moderated = ({ action }: { action: "mute" | "stop-screen" }) => { if (action === "mute") { const track = streamRef.current?.getAudioTracks()[0]; if (track) { track.enabled = false; setAudioEnabled(false); publishState({ audioEnabled: false, videoEnabled, screenSharing }); } } else stopScreen(); }; socket.on("call:moderated", moderated); return () => { socket.off("call:moderated", moderated); }; }, [publishState, screenSharing, stopScreen, videoEnabled]);
+  useEffect(() => {
+    const socket = getSocket();
+    const restoreCall = () => {
+      const channelId = channelRef.current;
+      if (!channelId) return;
+      peers.current.forEach((peer) => peer.close());
+      peers.current.clear();
+      peerUsers.current.clear();
+      peerStates.current.clear();
+      setRemotePeers([]);
+      const audioTrack = streamRef.current?.getAudioTracks()[0];
+      const cameraTrack = cameraTrackRef.current;
+      const screenTrack = screenTrackRef.current;
+      socket.emit("call:join", channelId);
+      socket.emit("call:state", { channelId, audioEnabled: !!audioTrack?.enabled, videoEnabled: !!cameraTrack?.enabled, screenSharing: !!screenTrack });
+    };
+    const resume = () => {
+      if (!channelRef.current || document.visibilityState === "hidden") return;
+      if (!socket.connected) socket.connect();
+    };
+    socket.on("connect", restoreCall);
+    window.addEventListener("online", resume);
+    window.addEventListener("focus", resume);
+    document.addEventListener("visibilitychange", resume);
+    return () => {
+      socket.off("connect", restoreCall);
+      window.removeEventListener("online", resume);
+      window.removeEventListener("focus", resume);
+      document.removeEventListener("visibilitychange", resume);
+    };
+  }, []);
   return { localStream, remotePeers, inCall, callChannelId, screenSharing, audioEnabled, videoEnabled, noiseSuppression, join, leave: () => undefined, disconnect, shareScreen, stopScreen, toggleAudio, toggleVideo, toggleNoiseSuppression, switchAudioInput };
 }
