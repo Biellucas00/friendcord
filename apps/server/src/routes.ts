@@ -57,9 +57,13 @@ routes.get("/attachments/:id", async (req, res, next) => { try {
 } catch (error) { next(error); } });
 
 routes.post("/auth/register", async (req, res, next) => { try {
-  const data = z.object({ username: z.string().regex(/^[a-zA-Z0-9_]{3,32}$/), password: z.string().min(8).max(100), displayName: z.string().min(2).max(50), realName: z.string().min(3).max(100), email: z.string().email().max(254) }).parse(req.body);
+  const data = z.object({
+    username: z.string({ required_error: "Informe o nome de exibição e login." }).trim().regex(/^[a-zA-Z0-9_]{3,32}$/, "O login deve ter de 3 a 32 caracteres: letras, números ou _."),
+    password: z.string({ required_error: "Informe a senha." }).min(8, "A senha deve ter pelo menos 8 caracteres.").max(100, "A senha deve ter no máximo 100 caracteres."),
+    email: z.string({ required_error: "Informe o e-mail." }).trim().email("Informe um e-mail válido.").max(254, "O e-mail deve ter no máximo 254 caracteres.")
+  }).parse(req.body);
   const passwordHash = await bcrypt.hash(data.password, 12); const siteRole = data.username.toLowerCase() === "arcanjoraziel" && data.email.toLowerCase() === "azazjogos@gmail.com" ? "superadmin" : "user";
-  const result = await query<any>(`INSERT INTO users(username,display_name,real_name,email,password_hash,site_role) VALUES(lower($1),$2,$3,lower($4),$5,$6) RETURNING ${userSelect}`, [data.username, data.displayName, data.realName, data.email, passwordHash, siteRole]); const user = result.rows[0]; res.status(201).json({ token: signToken(user), user });
+  const result = await query<any>(`INSERT INTO users(username,display_name,real_name,email,password_hash,site_role) VALUES(lower($1),$1,$1,lower($2),$3,$4) RETURNING ${userSelect}`, [data.username, data.email, passwordHash, siteRole]); const user = result.rows[0]; res.status(201).json({ token: signToken(user), user });
 } catch (error) { next(error); } });
 routes.post("/auth/login", async (req, res, next) => { try {
   const data = z.object({ username: z.string().min(3), password: z.string().min(8).max(100) }).parse(req.body); const result = await query<any>(`SELECT ${userSelect},password_hash FROM users WHERE username=lower($1)`, [data.username]); const row = result.rows[0]; if (!row || !(await bcrypt.compare(data.password, row.password_hash))) return res.status(401).json({ error: "Usuário ou senha inválidos" }); delete row.password_hash; res.json({ token: signToken(row), user: row });
