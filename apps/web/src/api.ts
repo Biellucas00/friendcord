@@ -1,15 +1,32 @@
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
 export const getToken = () => localStorage.getItem("friendcord_token");
 const wait = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+type LoadingListener = (pendingRequests: number) => void;
+const loadingListeners = new Set<LoadingListener>();
+let pendingRequests = 0;
+const updateLoading = (change: number) => {
+  pendingRequests = Math.max(0, pendingRequests + change);
+  loadingListeners.forEach((listener) => listener(pendingRequests));
+};
+export const subscribeToLoading = (listener: LoadingListener) => {
+  loadingListeners.add(listener);
+  listener(pendingRequests);
+  return () => { loadingListeners.delete(listener); };
+};
 async function fetchWithRetry(url: string, options: RequestInit) {
+  updateLoading(1);
   const delays = [0, 1500, 4000, 8000];
   let lastError: unknown;
-  for (const delay of delays) {
-    if (delay) await wait(delay);
-    try { return await fetch(url, options); }
-    catch (error) { lastError = error; }
+  try {
+    for (const delay of delays) {
+      if (delay) await wait(delay);
+      try { return await fetch(url, options); }
+      catch (error) { lastError = error; }
+    }
+    throw new Error(lastError instanceof TypeError ? "Servidor gratuito temporariamente indisponível. Aguarde alguns segundos e tente novamente." : "Não foi possível conectar ao servidor.");
+  } finally {
+    updateLoading(-1);
   }
-  throw new Error(lastError instanceof TypeError ? "Servidor gratuito temporariamente indisponível. Aguarde alguns segundos e tente novamente." : "Não foi possível conectar ao servidor.");
 }
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetchWithRetry(`${API_URL}/api${path}`, { cache: "no-store", ...options, headers: { "Content-Type": "application/json", ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}), ...options.headers } });

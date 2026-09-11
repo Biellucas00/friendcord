@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Attachment, CallParticipant, Channel, ChannelCategory, ChatMessage, DirectMessage, MessageRequest, PublicUser, Room, ServerRole } from "@friendcord/shared";
-import { API_URL, api, getToken, uploadFile } from "./api";
+import { API_URL, api, getToken, subscribeToLoading, uploadFile } from "./api";
 import { getSocket, resetSocket } from "./socket";
 import { playSignal, useWebRTC, type RemotePeer } from "./hooks/useWebRTC";
 import { AudioSink, useSpeaking, VideoTile } from "./components/VideoTile";
@@ -18,6 +18,18 @@ const mediaUrl = (path?: string | null) => path ? `${API_URL}${path}` : "";
 const isOnline = (list: PublicUser[], id: string) => list.some((item) => item.id === id);
 function friendlyPermission(error: unknown) { const cause = error as DOMException; return cause?.name === "NotAllowedError" ? "Permissão recusada. Libere o dispositivo no cadeado do navegador." : cause?.message || "Não foi possível acessar o dispositivo."; }
 function Modal({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) { return <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><section className="modal"><header><h2>{title}</h2><button onClick={onClose}>×</button></header>{children}</section></div>; }
+export function GlobalLoading() {
+  const [pending, setPending] = useState(0);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => subscribeToLoading(setPending), []);
+  useEffect(() => {
+    if (!pending) { setVisible(false); return; }
+    const timer = window.setTimeout(() => setVisible(true), 180);
+    return () => window.clearTimeout(timer);
+  }, [pending]);
+  if (!visible) return null;
+  return <div className="global-loading" role="status" aria-live="polite" aria-label="Carregando conteúdo"><div className="loading-spinner"/><strong>Carregando...</strong><small>Preparando o FriendCord</small></div>;
+}
 function Avatar({ person, size = "normal" }: { person: Pick<PublicUser, "displayName" | "avatarUrl">; size?: "normal" | "large" }) { return <div className={`avatar ${size === "large" ? "avatar-large" : ""}`}>{person.avatarUrl ? <img src={mediaUrl(person.avatarUrl)} alt=""/> : person.displayName.slice(0, 1).toUpperCase()}</div>; }
 function MessageText({ body }: { body: string }) {
   const renderInline = (text: string, group: number) => text.split(/(https?:\/\/\S+\.(?:gif|webp)|@[a-zA-Z0-9_]{2,32})/gi).map((piece, index) => {
