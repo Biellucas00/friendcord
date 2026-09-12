@@ -3,4 +3,6 @@ import { createRoot } from "react-dom/client";
 import App, { GlobalLoading } from "./App";
 import "./styles.css";
 import "./styles-v3.css";
+import { startDesktopUpdater } from "./desktopUpdater";
 createRoot(document.getElementById("root")!).render(<StrictMode><GlobalLoading/><App/></StrictMode>);
+void startDesktopUpdater();
