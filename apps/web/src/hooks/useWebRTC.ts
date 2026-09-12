@@ -22,24 +22,27 @@ const isolateVoice = async (sourceStream: MediaStream): Promise<IsolatedVoice> =
   const context = new AudioContext({ sampleRate: 48000, latencyHint: "interactive" });
   await context.resume();
   const source = context.createMediaStreamSource(new MediaStream([sourceTrack]));
-  const highPass = context.createBiquadFilter(); highPass.type = "highpass"; highPass.frequency.value = 110; highPass.Q.value = 0.72;
-  const lowPass = context.createBiquadFilter(); lowPass.type = "lowpass"; lowPass.frequency.value = 8200; lowPass.Q.value = 0.5;
-  const compressor = context.createDynamicsCompressor(); compressor.threshold.value = -38; compressor.knee.value = 14; compressor.ratio.value = 5; compressor.attack.value = 0.004; compressor.release.value = 0.18;
+  const highPass = context.createBiquadFilter(); highPass.type = "highpass"; highPass.frequency.value = 150; highPass.Q.value = 0.8;
+  const lowPass = context.createBiquadFilter(); lowPass.type = "lowpass"; lowPass.frequency.value = 6800; lowPass.Q.value = 0.6;
+  const compressor = context.createDynamicsCompressor(); compressor.threshold.value = -32; compressor.knee.value = 10; compressor.ratio.value = 4; compressor.attack.value = 0.006; compressor.release.value = 0.14;
   const analyser = context.createAnalyser(); analyser.fftSize = 1024; analyser.smoothingTimeConstant = 0.82;
   const gate = context.createGain(); gate.gain.value = 0;
   const destination = context.createMediaStreamDestination();
   source.connect(highPass).connect(lowPass).connect(compressor).connect(analyser).connect(gate).connect(destination);
   const samples = new Uint8Array(analyser.fftSize);
   let openUntil = 0;
+  let noiseFloor = 0.012;
   const timer = window.setInterval(() => {
     analyser.getByteTimeDomainData(samples);
     let energy = 0;
     for (const sample of samples) { const value = (sample - 128) / 128; energy += value * value; }
     const level = Math.sqrt(energy / samples.length);
     const now = performance.now();
-    if (level > 0.026) openUntil = now + 230;
-    const target = now < openUntil ? 1 : 0.035;
-    gate.gain.setTargetAtTime(target, context.currentTime, target > gate.gain.value ? 0.012 : 0.08);
+    if (level < noiseFloor * 1.8) noiseFloor = noiseFloor * 0.96 + level * 0.04;
+    const voiceThreshold = Math.max(0.042, noiseFloor * 3.2);
+    if (level > voiceThreshold) openUntil = now + 170;
+    const target = now < openUntil ? 1 : 0.002;
+    gate.gain.setTargetAtTime(target, context.currentTime, target > gate.gain.value ? 0.008 : 0.045);
   }, 32);
   const processedTrack = destination.stream.getAudioTracks()[0];
   if ("contentHint" in processedTrack) processedTrack.contentHint = "speech";
