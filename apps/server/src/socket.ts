@@ -1,4 +1,4 @@
-import type { Server } from "http";
+cors: { origin: [config.CLIENT_ORIGIN, "http://tauri.localhost", "https://tauri.localhost", "tauri://localhost"] }import type { Server } from "http";
 import { Server as SocketServer } from "socket.io";
 import type { CallParticipant, ClientToServerEvents, ServerToClientEvents } from "@friendcord/shared";
 import { config } from "./config.js";
