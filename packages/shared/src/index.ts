@@ -10,6 +10,7 @@ export interface DirectMessage { id: string; senderId: string; receiverId: strin
 export interface MessageRequest { id: string; sender: PublicUser; preview: string; createdAt: string }
 export interface MediaState { provider: "youtube" | "spotify" | "soundcloud" | "preview"; mediaId: string; mediaType?: string; title?: string; artist?: string; artworkUrl?: string; officialUrl?: string; playing: boolean; positionSeconds: number; updatedAt: number }
 export interface CallParticipant { socketId: string; user: PublicUser; audioEnabled: boolean; videoEnabled: boolean; screenSharing: boolean }
+export interface MessageSendResult { ok: boolean; error?: string }
 export interface ServerToClientEvents {
   "message:new": (message: ChatMessage) => void;
   "dm:new": (message: DirectMessage) => void;
@@ -28,8 +29,8 @@ export interface ServerToClientEvents {
 }
 export interface ClientToServerEvents {
   "channel:join": (channelId: string) => void;
-  "message:send": (data: { channelId: string; body: string; attachmentId?: string }) => void;
-  "dm:send": (data: { receiverId: string; body: string; attachmentId?: string }) => void;
+  "message:send": (data: { channelId: string; body: string; attachmentId?: string }, acknowledge?: (result: MessageSendResult) => void) => void;
+  "dm:send": (data: { receiverId: string; body: string; attachmentId?: string }, acknowledge?: (result: MessageSendResult) => void) => void;
   "ai:ask": (data: { channelId?: string; receiverId?: string; provider: "gpt" | "gemini"; prompt: string }) => void;
   "call:join": (channelId: string) => void;
   "call:roster-request": (roomId: string) => void;
