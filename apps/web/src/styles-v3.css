@@ -138,6 +138,9 @@ button:active { transform: translateY(0) scale(.98); }
 .call-stage small { color: #8f95a3; letter-spacing: .13em; font-weight: 800; }
 .camera-active { background: #236b52 !important; color: #aaffd6; }
 .floating-camera-dock { position: fixed; z-index: 96; width: min(420px, calc(100vw - 16px)); height: min(360px, calc(100dvh - 20px)); min-width: 280px; min-height: 220px; max-width: calc(100vw - 8px); max-height: calc(100dvh - 8px); overflow: auto; resize: both; border: 1px solid #405064; border-radius: 16px; background: #14171e; box-shadow: 0 24px 90px #000c; }
+.floating-camera-dock.camera-dock-default { left: 362px; right: 210px; top: 138px; bottom: 12px; width: auto; height: auto; max-width: none; max-height: none; resize: none; }
+.camera-dock-default .floating-camera-grid { grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); align-content: center; }
+.camera-dock-default .video-tile { min-height: min(68vh, 720px); }
 .floating-camera-dock > header { height: 48px; padding: 8px 10px 8px 14px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #343a47; background: #1d222c; cursor: grab; touch-action: none; user-select: none; }
 .floating-camera-dock > header:active { cursor: grabbing; }
 .floating-camera-dock > header strong { flex: 1; }
@@ -164,12 +167,12 @@ button:active { transform: translateY(0) scale(.98); }
 .modal:has(.settings-form) { width: min(1180px, 97vw); max-height: 94vh; }
 .modal:has(.server-settings-form) { width: min(980px, 96vw); max-height: 92vh; }
 .modal:has(.category-access-form) { width: min(1180px, 97vw); max-height: 94vh; }
-.category-access-form { grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 24px; gap: 14px; overflow-x: hidden; }
+.category-access-form { grid-template-columns: 1fr; padding: 24px; gap: 14px; overflow-x: hidden; }
 .category-access-help, .empty-category-roles, .category-access-form > .primary { grid-column: 1 / -1; }
-.category-role-card { min-width: 0; }
-.category-role-card > label { display: grid; grid-template-columns: minmax(0, 1fr) 132px; align-items: center; gap: 10px; }
+.category-role-card { min-width: 0; grid-template-columns: repeat(3, minmax(250px, 1fr)); }
+.category-role-card > label { display: grid; grid-template-columns: minmax(0, 1fr) 150px; align-items: center; gap: 12px; min-height: 82px; }
 .category-role-card > label > span { min-width: 0; }
-.category-role-card select { width: 132px; min-width: 132px; }
+.category-role-card select { width: 150px; min-width: 150px; }
 .category-head-actions { display: flex; flex-wrap: nowrap !important; align-items: center; gap: 5px; flex: none; }
 .category-head-actions button { flex: none; width: 34px; height: 34px; padding: 0; font-size: 19px; }
 .call-user-status i, .voice-state-badges i { width: 34px; height: 34px; font-size: 19px; border: 1px solid #505866; }
@@ -307,7 +310,7 @@ button:active { transform: translateY(0) scale(.98); }
 .category-sidebar-tools button { padding: 7px 9px; background: #2c3140; color: #dfe4ef; font-size: 12px; font-weight: 700; }
 .mobile-channels-toggle, .mobile-channel-head, .mobile-channel-backdrop { display: none; }
 .categorized-channels section > header { display: flex; align-items: center; justify-content: space-between; margin: 14px 5px 6px; color: #8e93a0; }
-.categorized-channels section > header strong { font-size: 11px; letter-spacing: .06em; }
+.categorized-channels section > header strong { min-width: 0; font-size: 11px; letter-spacing: .06em; overflow-wrap: anywhere; }
 .categorized-channels section > header button { min-width: 32px; min-height: 32px; padding: 4px 7px; background: transparent; font-size: 17px; }
 .categorized-row { display: grid; grid-template-columns: 1fr auto auto; align-items: center; border-radius: 8px; color: #b4b8c3; overflow: hidden; }
 .categorized-row:hover, .categorized-row.active { background: #303440; color: white; }
@@ -383,6 +386,24 @@ button:active { transform: translateY(0) scale(.98); }
   .modal-backdrop { padding: 8px; }
   .modal { max-height: 94vh; border-radius: 14px; }
   .floating-media { left: 64px; right: 7px; width: auto; }
+}
+
+@media (max-width: 720px) {
+  .call-stage-backdrop { align-items: stretch; padding: 0; overflow: hidden; }
+  .call-stage { width: 100vw; height: 100dvh; max-width: none; max-height: none; border: 0; border-radius: 0; grid-template-rows: auto minmax(0, 1fr) auto; }
+  .call-stage > header { min-height: 66px; padding: 10px 12px; gap: 8px; }
+  .call-stage > header h2 { font-size: 20px; }
+  .call-stage > header button { flex: none; white-space: nowrap; padding: 10px 12px; }
+  .stage-grid { min-width: 0; padding: 10px; grid-template-columns: 1fr; align-content: start; gap: 10px; overflow-x: hidden; overflow-y: auto; }
+  .peer-stage-card, .stage-grid > .video-tile { width: 100%; min-width: 0; }
+  .peer-stage-card .video-tile, .stage-grid > .video-tile { min-height: 210px; max-height: 44dvh; }
+  .peer-actions { display: grid; grid-template-columns: auto minmax(120px, 1fr); padding: 8px; }
+  .peer-actions label { min-width: 0; }
+  .peer-actions input[type="range"] { min-width: 70px; width: 100%; }
+  .stage-controls { position: sticky; bottom: 0; z-index: 5; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: 31dvh; padding: 9px calc(9px + env(safe-area-inset-right)) calc(9px + env(safe-area-inset-bottom)) calc(9px + env(safe-area-inset-left)); overflow-y: auto; }
+  .stage-controls button { min-width: 0; white-space: normal; line-height: 1.2; }
+  .floating-camera-dock { left: 6px !important; top: 72px !important; width: calc(100vw - 12px); max-width: none; height: min(62dvh, 520px); resize: vertical; }
+  .floating-camera-grid { grid-template-columns: 1fr; }
 }
 .nav-count { margin-left: auto; min-width: 21px; height: 21px; padding: 0 6px; border-radius: 12px; background: #e64d63; color: white; display: grid; place-items: center; font-size: 11px; }
 .channel-unread-dot { width: 8px; height: 8px; margin-left: auto; border-radius: 50%; background: #f5f6fa; box-shadow: 0 0 9px #fff8; }
