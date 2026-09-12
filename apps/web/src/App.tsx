@@ -41,7 +41,7 @@ function MessageText({ body }: { body: string }) {
 }
 function AttachmentView({ file }: { file: Attachment }) { const source = `${API_URL}${file.url}`; if (file.mimeType.startsWith("audio/")) return <audio className="audio-message" controls src={source}/>; if (file.mimeType.startsWith("image/")) return <a href={source} target="_blank"><img className="image-attachment" src={source} alt={file.filename}/></a>; return <a className="file-attachment" href={source} target="_blank" download>📎 <span>{file.filename}</span><small>{Math.ceil(file.sizeBytes / 1024)} KB</small></a>; }
 
-type PeerPreference = { volume: number; muted: boolean; videoHidden?: boolean; effectsMuted?: boolean };
+type PeerPreference = { volume: number; muted: boolean; screenVolume?: number; screenMuted?: boolean; videoHidden?: boolean; effectsMuted?: boolean };
 type UserContextMenu = { person: PublicUser; x: number; y: number };
 type RoleDraft = { name: string; color: string; permissions: Record<string, boolean>; memberIds: string[]; categoryPermissions: Record<string, Record<string, boolean>> };
 const permissionSections = [
@@ -80,7 +80,7 @@ function PersistentCall({ user, localStream, peers, expanded, setExpanded, audio
   const startCameraDrag = (event: React.PointerEvent<HTMLElement>) => { if (cameraDockMode === "docked") return; cameraDrag.current = { offsetX: event.clientX - cameraPosition.x, offsetY: event.clientY - cameraPosition.y }; event.currentTarget.setPointerCapture(event.pointerId); };
   const moveCameraDrag = (event: React.PointerEvent<HTMLElement>) => { if (!cameraDrag.current) return; setCameraPosition({ x: Math.max(6, Math.min(window.innerWidth - 260, event.clientX - cameraDrag.current.offsetX)), y: Math.max(6, Math.min(window.innerHeight - 180, event.clientY - cameraDrag.current.offsetY)) }); };
   return <>
-    <div className="audio-sinks" aria-hidden="true">{peers.map((peer) => { const preference = preferences[peer.id] ?? { volume: 1, muted: false }; return <AudioSink key={peer.id} stream={peer.stream} muted={outputMuted || preference.muted} volume={preference.volume} outputDeviceId={audioOutputId}/>; })}</div>
+    <div className="audio-sinks" aria-hidden="true">{peers.flatMap((peer) => { const preference = preferences[peer.id] ?? { volume: 1, muted: false }; return [<AudioSink key={`${peer.id}-voice`} stream={peer.stream} trackMode="voice" muted={outputMuted || preference.muted} volume={preference.volume} outputDeviceId={audioOutputId}/>, <AudioSink key={`${peer.id}-screen`} stream={peer.stream} trackMode="screen" muted={outputMuted || preference.screenMuted} volume={preference.screenVolume ?? 1} outputDeviceId={audioOutputId}/>]; })}</div>
     <aside className="persistent-call" onDoubleClick={() => setExpanded(true)}>
       <div className="call-status"><span>◉</span><div><strong>Voz conectada</strong><small>{peers.length + 1} participante(s) · clique 2x para abrir</small></div><div className="call-status-actions"><button className={noiseSuppression?"noise-active":""} title={noiseSuppression?"Supressão de ruído ativa":"Ativar supressão de ruído"} onClick={toggleNoiseSuppression}>≋</button><button className="disconnect-call" title="Desconectar da chamada" onClick={disconnect}>☎</button></div></div>
       <div className="call-primary-actions"><button className={!videoEnabled?"control-off":""} title="Ligar ou desligar câmera" onClick={toggleVideo}>{videoEnabled?"📹":"📷"}</button><div className="split-device-control"><button className={screenSharing?"screen-active":""} title={screenSharing?"Parar compartilhamento":"Compartilhar tela"} onClick={screenSharing?stopScreen:share}>{screenSharing?"⏹":"▣"}</button><button title="Qualidade do compartilhamento" onClick={()=>setDeviceMenu(deviceMenu==="screen"?null:"screen")}>⌃</button></div><button className={showMedia?"media-active":""} title="Abrir mídia e música" onClick={toggleMedia}>♫</button>{activeCameraCount>0&&<button className={cameraDockOpen?"camera-active":""} title="Ver câmeras ativas" onClick={()=>setCameraDockOpen((current)=>!current)}>▣ {activeCameraCount}</button>}<button title="Abrir chamada completa" onClick={()=>setExpanded(true)}>◔</button></div>
@@ -207,11 +207,28 @@ export default function App() {
   useEffect(() => { if (view !== "dm" || !selectedUser) return; api<DirectMessage[]>(`/dms/${selectedUser.id}/messages`).then(setDmMessages).catch(() => setDmMessages([])); const socket = getSocket(); const receive = (item: DirectMessage) => { if (item.senderId === selectedUser.id || item.receiverId === selectedUser.id || item.author.username.startsWith("friend")) setDmMessages((current) => current.some((message)=>message.id===item.id)?current:[...current, item]); }; socket.on("dm:new", receive); return () => { socket.off("dm:new", receive); }; }, [view, selectedUser?.id]);
   useEffect(() => { historyRef.current?.scrollTo({ top: historyRef.current.scrollHeight, behavior: "smooth" }); }, [messages, dmMessages]);
   useEffect(() => { const close = () => setContextMenu(null); window.addEventListener("click", close); window.addEventListener("resize", close); window.addEventListener("scroll", close, true); return () => { window.removeEventListener("click", close); window.removeEventListener("resize", close); window.removeEventListener("scroll", close, true); }; }, []);
+  useEffect(() => { const preventBrowserMenu = (event: MouseEvent) => { const target = event.target as HTMLElement | null; if (target?.closest(".member,.message-history article,.dm-person,.call-mini-users>div,.call-user-bar,.categorized-voice-user")) event.preventDefault(); }; document.addEventListener("contextmenu", preventBrowserMenu, true); return () => document.removeEventListener("contextmenu", preventBrowserMenu, true); }, []);
   useEffect(() => { if (!editingRoleId || Object.keys(roleDraft.categoryPermissions).length) return; const role = customRoles.find((item) => item.id === editingRoleId); if (role && Object.keys(role.categoryPermissions).length) setRoleDraft((current) => ({ ...current, categoryPermissions: { ...role.categoryPermissions } })); }, [editingRoleId, customRoles]);
   if (!user) return <Auth onDone={setUser}/>;
   const openUserContext = (event: React.MouseEvent, person: PublicUser) => { event.preventDefault(); event.stopPropagation(); setContextMenu({ person, x: Math.min(event.clientX, window.innerWidth - 290), y: Math.min(event.clientY, window.innerHeight - 650) }); };
   const contextPeer = contextMenu ? rtc.remotePeers.find((peer) => peer.user.id === contextMenu.person.id) : undefined;
   const contextPreference = contextPeer ? peerPreferences[contextPeer.id] ?? { volume: 1, muted: false } : undefined;
+  useEffect(() => {
+    if (!contextPeer || !contextPreference) return;
+    const panel = document.querySelector<HTMLElement>(".user-context-menu .context-audio");
+    if (!panel) return;
+    const voiceSlider = panel.querySelector<HTMLInputElement>('input[type="range"]');
+    if (voiceSlider) { voiceSlider.max = "2.5"; voiceSlider.parentElement?.prepend(document.createTextNode(`Boost ate 250% - atual ${Math.round(contextPreference.volume * 100)}% | `)); }
+    if (!contextPeer.screenSharing) return;
+    const controls = document.createElement("div"); controls.className = "context-stream-audio";
+    const label = document.createElement("label"); label.textContent = `Volume da transmissao: ${Math.round((contextPreference.screenVolume ?? 1) * 100)}%`;
+    const slider = document.createElement("input"); slider.type = "range"; slider.min = "0"; slider.max = "2.5"; slider.step = ".05"; slider.value = String(contextPreference.screenVolume ?? 1);
+    slider.oninput = () => setPeerPreferences((current) => ({ ...current, [contextPeer.id]: { ...current[contextPeer.id], volume: current[contextPeer.id]?.volume ?? 1, muted: current[contextPeer.id]?.muted ?? false, screenVolume: Number(slider.value) } }));
+    const mute = document.createElement("button"); mute.type = "button"; mute.textContent = contextPreference.screenMuted ? "Ouvir transmissao" : "Silenciar transmissao";
+    mute.onclick = () => setPeerPreferences((current) => ({ ...current, [contextPeer.id]: { ...current[contextPeer.id], volume: current[contextPeer.id]?.volume ?? 1, muted: current[contextPeer.id]?.muted ?? false, screenMuted: !current[contextPeer.id]?.screenMuted } }));
+    label.append(slider); controls.append(label, mute); panel.append(controls);
+    return () => controls.remove();
+  }, [contextPeer, contextPreference]);
   const toggleStoredUser = (key: "friendcord_ignored_users" | "friendcord_blocked_users", id: string, current: string[], setCurrent: (value: string[]) => void) => { const next = current.includes(id) ? current.filter((item) => item !== id) : [...current, id]; localStorage.setItem(key, JSON.stringify(next)); setCurrent(next); };
 
   const openRoom = (id: string) => { setRoomId(id); setView("room"); }; const openDirect = (person: PublicUser) => { setSelectedUser(person); setUnreadDirects((current) => current.filter((id) => id !== person.id)); setBody(""); setModal(null); setView("dm"); };

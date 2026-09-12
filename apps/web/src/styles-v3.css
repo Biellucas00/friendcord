@@ -247,6 +247,9 @@ button:active { transform: translateY(0) scale(.98); }
 .context-audio i.checked { border-color: #8c78ff; background: #7661e8; box-shadow: inset 0 0 0 4px #261f23; }
 .user-context-menu .context-danger { color: #ff9ca8; }
 .user-context-menu .context-danger:hover { background: #a63b4c; color: white; }
+.context-stream-audio { display: grid; gap: 5px; margin-top: 6px; padding-top: 8px; border-top: 1px solid #493e44; }
+.context-stream-audio label { display: grid; gap: 5px; padding: 7px 9px; color: #f4eff2; font-size: 12px; font-weight: 700; }
+.context-stream-audio input[type="range"] { width: 100%; }
 @media (max-width: 980px) { .settings-form { grid-template-columns: 1fr; } }
 @media (max-width: 1050px) { .room-shell { grid-template-columns: 64px 260px 1fr; } .universal-rail { padding-inline: 6px; } .persistent-call { left: 70px; width: 248px; } }
 @media (max-width: 720px) { .home-shell { grid-template-columns: 64px 72px minmax(0, 1fr); } .room-shell { grid-template-columns: 64px minmax(0, 1fr); } .persistent-call { left: 70px; width: calc(100vw - 82px); } .call-stage-backdrop { padding: 8px; } .call-stage { width: 100%; height: 96vh; border-radius: 16px; } .stage-grid { grid-template-columns: 1fr; } .settings-columns, .diagnostic-results { grid-template-columns: 1fr; } .modal:has(.settings-form), .modal:has(.server-settings-form) { width: 98vw; } .settings-form { padding: 12px; gap: 12px; } }
