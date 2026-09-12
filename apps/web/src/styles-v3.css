@@ -163,6 +163,21 @@ button:active { transform: translateY(0) scale(.98); }
 .stage-controls { display: flex; justify-content: center; gap: 8px; padding: 13px; background: #11141a; border-top: 1px solid #2c303a; flex-wrap: wrap; }
 .modal:has(.settings-form) { width: min(1180px, 97vw); max-height: 94vh; }
 .modal:has(.server-settings-form) { width: min(980px, 96vw); max-height: 92vh; }
+.modal:has(.category-access-form) { width: min(1180px, 97vw); max-height: 94vh; }
+.category-access-form { grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 24px; gap: 14px; overflow-x: hidden; }
+.category-access-help, .empty-category-roles, .category-access-form > .primary { grid-column: 1 / -1; }
+.category-role-card { min-width: 0; }
+.category-role-card > label { display: grid; grid-template-columns: minmax(0, 1fr) 132px; align-items: center; gap: 10px; }
+.category-role-card > label > span { min-width: 0; }
+.category-role-card select { width: 132px; min-width: 132px; }
+.category-head-actions { display: flex; flex-wrap: nowrap !important; align-items: center; gap: 5px; flex: none; }
+.category-head-actions button { flex: none; width: 34px; height: 34px; padding: 0; font-size: 19px; }
+.call-user-status i, .voice-state-badges i { width: 34px; height: 34px; font-size: 19px; border: 1px solid #505866; }
+.call-user-status .status-off, .voice-state-badges .status-off { color: #fff; background: #a52f43; box-shadow: 0 0 0 2px #ff667c35; }
+.live-share-button { min-width: 92px; height: 32px; font-size: 12px !important; box-shadow: 0 0 0 2px #ff496535; }
+.pin-stream-button { width: 38px; height: 30px; padding: 0; background: #090b0dcc; border: 1px solid #596273; font-size: 16px; }
+.pinned-video-tile { position: fixed !important; inset: 18px !important; z-index: 130 !important; width: auto !important; height: auto !important; min-height: 0 !important; border: 2px solid #6d78ff !important; border-radius: 16px !important; background: #08090d; box-shadow: 0 30px 120px #000; }
+.pinned-video-tile video { width: 100%; height: 100%; object-fit: contain; }
 .settings-form, .server-settings-form { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; padding: 26px; gap: 20px; overflow-x: hidden; }
 .settings-form > *, .settings-form label, .settings-columns > *, .server-settings-form > * { min-width: 0; }
 .settings-form > section, .server-settings-form > section { display: grid; gap: 12px; padding: 18px; background: #1b1e26; border: 1px solid #363b47; border-radius: 15px; }
@@ -309,6 +324,10 @@ button:active { transform: translateY(0) scale(.98); }
 .voice-members-inline > div:hover { background: #ffffff0b; }
 @media (max-width: 1050px) { .categorized-channels { left: 64px; width: 260px; } }
 @media (max-width: 720px) {
+  .category-access-form { grid-template-columns: 1fr; padding: 14px; }
+  .category-role-card > label { grid-template-columns: minmax(0, 1fr) 120px; }
+  .category-role-card select { width: 120px; min-width: 120px; }
+  .pinned-video-tile { inset: 8px !important; }
   .floating-camera-dock { left: 62px !important; top: max(8px, env(safe-area-inset-top)) !important; width: calc(100vw - 68px); max-height: min(440px, calc(100dvh - 90px)); }
   .floating-camera-grid .video-tile { min-height: 170px; }
   .category-role-card { grid-template-columns: 1fr; }
