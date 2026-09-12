@@ -15,14 +15,23 @@ export const subscribeToLoading = (listener: LoadingListener) => {
 };
 async function fetchWithRetry(url: string, options: RequestInit) {
   updateLoading(1);
-  const delays = [0, 1500, 4000, 8000];
+  const delays = [0, 2000, 5000, 10000, 15000, 20000];
   let lastError: unknown;
+  let lastResponse: Response | undefined;
   try {
     for (const delay of delays) {
       if (delay) await wait(delay);
-      try { return await fetch(url, options); }
-      catch (error) { lastError = error; }
+      try {
+        const response = await fetch(url, options);
+        lastResponse = response;
+        const contentType = response.headers.get("content-type") ?? "";
+        const shouldRetry = [502, 503, 504].includes(response.status) || contentType.includes("text/html");
+        if (!shouldRetry) return response;
+      } catch (error) {
+        lastError = error;
+      }
     }
+    if (lastResponse) return lastResponse;
     throw new Error(lastError instanceof TypeError ? "Servidor gratuito temporariamente indisponível. Aguarde alguns segundos e tente novamente." : "Não foi possível conectar ao servidor.");
   } finally {
     updateLoading(-1);
