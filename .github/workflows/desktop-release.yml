@@ -1,0 +1,45 @@
+name: FriendCord Desktop Release
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "apps/desktop/**"
+      - "apps/web/**"
+      - "packages/shared/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/desktop-release.yml"
+permissions:
+  contents: write
+jobs:
+  release-windows:
+    runs-on: windows-latest
+    env:
+      VITE_API_URL: https://friendcord-api.onrender.com
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 10 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - uses: dtolnay/rust-toolchain@stable
+      - run: pnpm install --no-frozen-lockfile
+      - name: Set release version
+        shell: pwsh
+        run: |
+          $version = "0.1.${{ github.run_number }}"
+          $config = Get-Content apps/desktop/src-tauri/tauri.conf.json -Raw | ConvertFrom-Json
+          $config.version = $version
+          $config | ConvertTo-Json -Depth 20 | Set-Content apps/desktop/src-tauri/tauri.conf.json
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: apps/desktop
+          tagName: friendcord-v0.1.${{ github.run_number }}
+          releaseName: FriendCord v0.1.${{ github.run_number }}
+          releaseBody: Atualizacao automatica do FriendCord para Windows.
+          releaseDraft: false
+          prerelease: false
