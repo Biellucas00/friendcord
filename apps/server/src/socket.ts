@@ -4,7 +4,7 @@ import type { CallParticipant, ClientToServerEvents, ServerToClientEvents } from
 import { config } from "./config.js";
 import { query } from "./db.js";
 import { readToken, type AuthUser } from "./auth.js";
-import { getChannelPermissions, hasChannelPermission } from "./permissions.js";
+socket.on("message:send", async ({ channelId, body, attachmentId }, acknowledge) => { try {
 
 const online = new Map<string, { user: AuthUser; sockets: Set<string> }>();
 let activeIo: SocketServer<ClientToServerEvents, ServerToClientEvents> | null = null;
@@ -80,7 +80,8 @@ export function attachSocket(server: Server) {
   const publishPresence = () => io.emit("presence:update", [...online.values()].map(({ user }) => ({ ...user, online: true })));
   io.on("connection", async (socket) => {
     const tokenUser = socket.data.user as AuthUser;
-    const fresh = await query<any>(`SELECT id,username,display_name AS "displayName",site_role AS "siteRole",custom_status AS "customStatus",CASE WHEN avatar_id IS NULL THEN NULL ELSE '/api/attachments/'||avatar_id END AS "avatarUrl" FROM users WHERE id=$1`, [tokenUser.id]);
+    const fresh = await query<any>(`SELECT id,username,display_name AS "displayName",site_role AS "siteRole",custom_status AS "customStatus",CASE WHEN avatar_id IS NULL THEN NULL ELSE '/api/attachments/'||avatar_id END AS "avatarUrl" FROM users WHERE id=$1`, [tokenUser.id]);import { getChannelPermissions, hasChannelPermission } from "./permissions.js";
+import { reportError } from "./telemetry.js";
     const user = (fresh.rows[0] ?? tokenUser) as AuthUser; socket.data.user = user;
     const memberships = await query<{ roomId: string }>(`SELECT room_id AS "roomId" FROM memberships WHERE user_id=$1`, [user.id]);
     memberships.rows.forEach(({ roomId }) => socket.join(`server:${roomId}`));
@@ -94,7 +95,7 @@ export function attachSocket(server: Server) {
       const voiceChannels = await query<{ id: string }>("SELECT id FROM channels WHERE room_id=$1 AND kind='voice'", [roomId]);
       await Promise.all(voiceChannels.rows.map(({ id }) => publishCallRoster(id)));
     });
-    socket.on("message:send", async ({ channelId, body, attachmentId }) => {
+    if (!result.rows[0]) return acknowledge?.({ ok: false, error: "Canal ou anexo inválido." }); let attachment = null;
       const clean = body.trim().slice(0, 2000); if (!clean && !attachmentId) return;
       const resolved = await getChannelPermissions(channelId,user.id,user.siteRole);
       if (!resolved?.accessible || (!resolved.permissions.administrator && !resolved.permissions.sendMessages)) return socket.emit("notification",{title:"Permissão negada",body:"Você não pode enviar mensagens neste canal."});
@@ -105,9 +106,12 @@ export function attachSocket(server: Server) {
         SELECT $1,$2,$3,$4 WHERE EXISTS(SELECT 1 FROM channels WHERE id=$1)
         AND ($4::uuid IS NULL OR EXISTS(SELECT 1 FROM attachments WHERE id=$4 AND uploaded_by=$2))
         RETURNING id,channel_id AS "channelId",(SELECT room_id FROM channels WHERE id=channel_id) AS "roomId",coalesce(body,'') AS body,created_at AS "createdAt"`, [channelId, user.id, clean, attachmentId ?? null]);
-      if (!result.rows[0]) return; let attachment = null;
-      if (attachmentId) { const file = await query<any>("SELECT id,filename,mime_type AS \"mimeType\",size_bytes AS \"sizeBytes\" FROM attachments WHERE id=$1", [attachmentId]); if (file.rows[0]) attachment = { ...file.rows[0], url: `/api/attachments/${attachmentId}` }; }
       io.to(`channel:${channelId}`).emit("message:new", { ...result.rows[0], author: user, attachment });
+      acknowledge?.({ ok: true });
+      if (attachmentId) { const file = await query<any>("SELECT id,filename,mime_type AS \"mimeType\",size_bytes AS \"sizeBytes\" FROM attachments WHERE id=$1", [attachmentId]); if (file.rows[0]) attachment = { ...file.rows[0], url: `/api/attachments/${attachmentId}` }; }
+          } catch (error) { await reportError("socket:message:send", error, { userId: user.id, channelId }); acknowledge?.({ ok: false, error: "Erro interno ao enviar a mensagem." }); } });
+    socket.on("dm:send", async ({ receiverId, body, attachmentId }, acknowledge) => {io.to(`user:${user.id}`).emit("dm:new", { ...result.rows[0], author: user, attachment }); if (accepted) io.to(`user:${receiverId}`).emit("dm:new", { ...result.rows[0], author: user, attachment }); else io.to(`user:${receiverId}`).emit("message-request:new", { id:requestId,sender:user,preview:clean||"📎 Arquivo",createdAt:result.rows[0].createdAt });
+      acknowledge?.({ ok: true });
       const mentionedUsernames = [...new Set([...clean.matchAll(/@([a-zA-Z0-9_]{3,32})/g)].map((match) => match[1].toLowerCase()))].filter((username) => username !== user.username.toLowerCase() && username !== "gpt" && username !== "gemini");
       if (mentionedUsernames.length) {
         const mentionedUsers = await query<{ id: string; username: string }>(`SELECT u.id,u.username FROM users u JOIN memberships m ON m.user_id=u.id JOIN channels c ON c.room_id=m.room_id WHERE c.id=$1 AND lower(u.username)=ANY($2::text[])`, [channelId, mentionedUsernames]);
