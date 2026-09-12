@@ -20,16 +20,25 @@ export function VideoTile({ stream, muted = false, volume = 1, label, avatarUrl,
   return <div className={classes}><video className={`${videoVisible ? "" : "audio-only-video"}${mirror ? " mirrored-video" : ""}`} ref={ref} autoPlay playsInline muted={muted}/>{!videoVisible && <div className="call-avatar">{image ? <img src={image} alt=""/> : <span>{label.slice(0, 1).toUpperCase()}</span>}</div>}{screenSharing&&<strong className="live-badge">● AO VIVO</strong>}{videoVisible&&<div className="video-overlay-actions">{screenSharing&&<button className="pin-stream-button" title={focused ? "Desfixar transmissão" : "Fixar e focar transmissão"} onClick={() => setFocused((current) => !current)}>{focused ? "↙" : "📌"}</button>}{screenSharing&&<button className="fullscreen-button" title="Assistir em tela cheia" onClick={fullScreen}>⛶</button>}{document.pictureInPictureEnabled&&<button className="pip-button" title="Manter vídeo sobre outras abas" onClick={pictureInPicture}>▣</button>}</div>}<span>{screenSharing ? "🖥 " : ""}{label}</span></div>;
 }
 
-export function AudioSink({ stream, muted = false, volume = 1, outputDeviceId }: { stream: MediaStream; muted?: boolean; volume?: number; outputDeviceId?: string }) {
+export function AudioSink({ stream, muted = false, volume = 1, outputDeviceId, trackMode = "all" }: { stream: MediaStream; muted?: boolean; volume?: number; outputDeviceId?: string; trackMode?: "all" | "voice" | "screen" }) {
   const ref = useRef<SinkAudio>(null);
   useEffect(() => {
     const element = ref.current;
     if (!element) return;
-    element.srcObject = stream;
-    element.volume = volume;
+    const selectTracks = () => {
+      const tracks = stream.getAudioTracks();
+      element.srcObject = new MediaStream(trackMode === "voice" ? tracks.slice(0, 1) : trackMode === "screen" ? tracks.slice(1) : tracks);
+    };
+    selectTracks();
+    element.volume = Math.min(1, volume);
     element.muted = muted;
     if (outputDeviceId && element.setSinkId) void element.setSinkId(outputDeviceId).catch(() => undefined);
-    const play = () => { if (!muted && stream.getAudioTracks().some((track) => track.readyState === "live")) void element.play().catch(() => undefined); };
+    const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const context = volume > 1 ? new AudioContextClass() : null;
+    const source = context ? context.createMediaElementSource(element) : null;
+    const gain = context ? context.createGain() : null;
+    if (source && gain && context) { gain.gain.value = volume; source.connect(gain).connect(context.destination); }
+    const play = () => { selectTracks(); if (!muted && (element.srcObject as MediaStream | null)?.getAudioTracks().some((track) => track.readyState === "live")) void element.play().catch(() => undefined); };
     play();
     stream.addEventListener("addtrack", play);
     element.addEventListener("canplay", play);
@@ -39,7 +48,10 @@ export function AudioSink({ stream, muted = false, volume = 1, outputDeviceId }:
       element.removeEventListener("canplay", play);
       window.removeEventListener("pointerdown", play);
       element.srcObject = null;
+      source?.disconnect();
+      gain?.disconnect();
+      if (context) void context.close();
     };
-  }, [muted, outputDeviceId, stream, volume]);
+  }, [muted, outputDeviceId, stream, trackMode, volume]);
   return <audio ref={ref} autoPlay playsInline preload="auto" />;
 }
