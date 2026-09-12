@@ -139,8 +139,33 @@ button:active { transform: translateY(0) scale(.98); }
 .camera-active { background: #236b52 !important; color: #aaffd6; }
 .floating-camera-dock { position: fixed; z-index: 96; width: min(420px, calc(100vw - 16px)); height: min(360px, calc(100dvh - 20px)); min-width: 280px; min-height: 220px; max-width: calc(100vw - 8px); max-height: calc(100dvh - 8px); overflow: auto; resize: both; border: 1px solid #405064; border-radius: 16px; background: #14171e; box-shadow: 0 24px 90px #000c; }
 .floating-camera-dock.camera-dock-default { left: 362px; right: 210px; top: 138px; bottom: 12px; width: auto; height: auto; max-width: none; max-height: none; resize: none; }
-.camera-dock-default .floating-camera-grid { grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); align-content: center; }
-.camera-dock-default .video-tile { min-height: min(68vh, 720px); }
+.camera-dock-default .floating-camera-grid { height: calc(100% - 48px); min-height: 0; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); grid-auto-rows: minmax(0, 1fr); align-content: stretch; }
+.floating-camera-dock.camera-dock-default .floating-camera-grid .video-tile { width: 100%; height: 100%; min-height: 0; }
+.floating-camera-dock.camera-dock-default .video-tile video { width: 100%; height: 100%; max-height: none; object-fit: contain; }
+
+.floating-camera-dock.camera-dock-default .floating-camera-grid {
+  display: grid !important;
+  position: absolute;
+  inset: 48px 0 0;
+  width: 100%;
+  height: auto !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  grid-template-rows: minmax(0, 1fr) !important;
+  padding: 8px;
+}
+.floating-camera-dock.camera-dock-default .floating-camera-grid > .video-tile:only-child {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  align-self: stretch;
+}
+.floating-camera-dock.camera-dock-default .floating-camera-grid > .video-tile:only-child video {
+  width: 100% !important;
+  height: 100% !important;
+  max-height: none !important;
+  object-fit: contain;
+}
 .floating-camera-dock > header { height: 48px; padding: 8px 10px 8px 14px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #343a47; background: #1d222c; cursor: grab; touch-action: none; user-select: none; }
 .floating-camera-dock > header:active { cursor: grabbing; }
 .floating-camera-dock > header strong { flex: 1; }
