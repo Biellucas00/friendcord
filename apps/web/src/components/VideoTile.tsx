@@ -10,13 +10,14 @@ export function useSpeaking(stream: MediaStream | null, enabled = true) {
 }
 export function VideoTile({ stream, muted = false, volume = 1, label, avatarUrl, videoVisible, screenSharing = false, mirror = false, outputDeviceId }: { stream: MediaStream; muted?: boolean; volume?: number; label: string; avatarUrl?: string | null; videoVisible: boolean; screenSharing?: boolean; mirror?: boolean; outputDeviceId?: string }) {
   const ref = useRef<SinkVideo>(null);
+  const [focused, setFocused] = useState(false);
   const speaking = useSpeaking(stream);
   useEffect(() => { if (!ref.current) return; ref.current.srcObject = stream; ref.current.volume = volume; ref.current.muted = true; if (outputDeviceId && ref.current.setSinkId) ref.current.setSinkId(outputDeviceId).catch(() => undefined); }, [stream, volume, outputDeviceId]);
   const image = avatarUrl ? `${API_URL}${avatarUrl}` : null;
-  const classes = ["video-tile", screenSharing ? "sharing" : "", speaking ? "speaking" : ""].filter(Boolean).join(" ");
+  const classes = ["video-tile", screenSharing ? "sharing" : "", speaking ? "speaking" : "", focused ? "pinned-video-tile" : ""].filter(Boolean).join(" ");
   const pictureInPicture = async () => { if (!ref.current || !document.pictureInPictureEnabled) return; if (document.pictureInPictureElement === ref.current) await document.exitPictureInPicture(); else await ref.current.requestPictureInPicture(); };
   const fullScreen = async () => { if (!ref.current) return; if (document.fullscreenElement) await document.exitFullscreen(); else await ref.current.requestFullscreen(); };
-  return <div className={classes}><video className={`${videoVisible ? "" : "audio-only-video"}${mirror ? " mirrored-video" : ""}`} ref={ref} autoPlay playsInline muted={muted}/>{!videoVisible && <div className="call-avatar">{image ? <img src={image} alt=""/> : <span>{label.slice(0, 1).toUpperCase()}</span>}</div>}{screenSharing&&<strong className="live-badge">● AO VIVO</strong>}{videoVisible&&<div className="video-overlay-actions">{screenSharing&&<button className="fullscreen-button" title="Assistir em tela cheia" onClick={fullScreen}>⛶</button>}{document.pictureInPictureEnabled&&<button className="pip-button" title="Manter vídeo sobre outras abas" onClick={pictureInPicture}>▣</button>}</div>}<span>{screenSharing ? "🖥 " : ""}{label}</span></div>;
+  return <div className={classes}><video className={`${videoVisible ? "" : "audio-only-video"}${mirror ? " mirrored-video" : ""}`} ref={ref} autoPlay playsInline muted={muted}/>{!videoVisible && <div className="call-avatar">{image ? <img src={image} alt=""/> : <span>{label.slice(0, 1).toUpperCase()}</span>}</div>}{screenSharing&&<strong className="live-badge">● AO VIVO</strong>}{videoVisible&&<div className="video-overlay-actions">{screenSharing&&<button className="pin-stream-button" title={focused ? "Desfixar transmissão" : "Fixar e focar transmissão"} onClick={() => setFocused((current) => !current)}>{focused ? "↙" : "📌"}</button>}{screenSharing&&<button className="fullscreen-button" title="Assistir em tela cheia" onClick={fullScreen}>⛶</button>}{document.pictureInPictureEnabled&&<button className="pip-button" title="Manter vídeo sobre outras abas" onClick={pictureInPicture}>▣</button>}</div>}<span>{screenSharing ? "🖥 " : ""}{label}</span></div>;
 }
 
 export function AudioSink({ stream, muted = false, volume = 1, outputDeviceId }: { stream: MediaStream; muted?: boolean; volume?: number; outputDeviceId?: string }) {
@@ -28,7 +29,17 @@ export function AudioSink({ stream, muted = false, volume = 1, outputDeviceId }:
     element.volume = volume;
     element.muted = muted;
     if (outputDeviceId && element.setSinkId) void element.setSinkId(outputDeviceId).catch(() => undefined);
-    if (!muted) void element.play().catch(() => undefined);
+    const play = () => { if (!muted && stream.getAudioTracks().some((track) => track.readyState === "live")) void element.play().catch(() => undefined); };
+    play();
+    stream.addEventListener("addtrack", play);
+    element.addEventListener("canplay", play);
+    window.addEventListener("pointerdown", play, { once: true });
+    return () => {
+      stream.removeEventListener("addtrack", play);
+      element.removeEventListener("canplay", play);
+      window.removeEventListener("pointerdown", play);
+      element.srcObject = null;
+    };
   }, [muted, outputDeviceId, stream, volume]);
-  return <audio ref={ref} autoPlay playsInline />;
+  return <audio ref={ref} autoPlay playsInline preload="auto" />;
 }
