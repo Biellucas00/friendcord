@@ -1,0 +1,1 @@
+{"$schema":"../gen/schemas/desktop-schema.json","identifier":"default","description":"Permissoes principais do FriendCord","windows":["main"],"permissions":["core:default","process:allow-restart","updater:default"]}
