@@ -27,6 +27,11 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: pnpm install --no-frozen-lockfile
       - run: pnpm --filter @friendcord/shared build
+      - name: Generate Windows icon
+        shell: pwsh
+        run: |
+          $iconBase64 = Get-Content apps/desktop/src-tauri/icons/icon.ico.b64 -Raw
+          [IO.File]::WriteAllBytes("apps/desktop/src-tauri/icons/icon.ico", [Convert]::FromBase64String($iconBase64.Trim()))
       - name: Set release version
         shell: pwsh
         run: |
