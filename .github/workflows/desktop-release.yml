@@ -26,6 +26,7 @@ jobs:
         with: { node-version: 22, cache: pnpm }
       - uses: dtolnay/rust-toolchain@stable
       - run: pnpm install --no-frozen-lockfile
+      - run: pnpm --filter @friendcord/shared build
       - name: Set release version
         shell: pwsh
         run: |
