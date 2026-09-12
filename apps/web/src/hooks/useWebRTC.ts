@@ -4,23 +4,67 @@ import { getSocket } from "../socket";
 
 type Quality = { width: number; height: number; frameRate: number };
 export interface RemotePeer { id: string; stream: MediaStream; user: PublicUser; audioEnabled: boolean; videoEnabled: boolean; screenSharing: boolean }
-const iceServers: RTCIceServer[] = [{ urls: import.meta.env.VITE_STUN_URL ?? "stun:stun.l.google.com:19302" }, ...(import.meta.env.VITE_TURN_URL ? [{ urls: import.meta.env.VITE_TURN_URL, username: import.meta.env.VITE_TURN_USERNAME, credential: import.meta.env.VITE_TURN_CREDENTIAL }] : [])];
+const splitUrls = (value?: string) => value?.split(",").map((url) => url.trim()).filter(Boolean) ?? [];
+const stunUrls = splitUrls(import.meta.env.VITE_STUN_URL);
+const turnUrls = splitUrls(import.meta.env.VITE_TURN_URL);
+const iceServers: RTCIceServer[] = [
+  { urls: stunUrls.length ? stunUrls : ["stun:stun.cloudflare.com:3478", "stun:stun.l.google.com:19302"] },
+  ...(turnUrls.length ? [{ urls: turnUrls, username: import.meta.env.VITE_TURN_USERNAME, credential: import.meta.env.VITE_TURN_CREDENTIAL }] : []),
+];
 
 export function playSignal(kind: "join" | "leave" | "share" | "camera") {
   try {
-    const Context = window.AudioContext || (window as typeof window & { webkitAudioContext: typeof AudioContext }).webkitAudioContext; const context = new Context(); const notes = kind === "join" ? [520, 720] : kind === "leave" ? [620, 420] : kind === "camera" ? [680, 840] : [760, 980];
-    notes.forEach((frequency, index) => { const oscillator = context.createOscillator(); const gain = context.createGain(); const start = context.currentTime + index * 0.12; oscillator.frequency.value = frequency; oscillator.type = "sine"; gain.gain.setValueAtTime(0.0001, start); gain.gain.exponentialRampToValueAtTime(0.18, start + 0.02); gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.14); oscillator.connect(gain).connect(context.destination); oscillator.start(start); oscillator.stop(start + 0.15); });
-    setTimeout(() => context.close(), 500);
+    const Context = window.AudioContext || (window as typeof window & { webkitAudioContext: typeof AudioContext }).webkitAudioContext; const context = new Context(); const notes = kind === "join" ? [440, 660, 880] : kind === "leave" ? [720, 520, 360] : kind === "camera" ? [620, 780] : [520, 760, 1040];
+    notes.forEach((frequency, index) => { const oscillator = context.createOscillator(); const gain = context.createGain(); const start = context.currentTime + index * 0.1; oscillator.frequency.value = frequency; oscillator.type = kind === "share" ? "triangle" : "sine"; gain.gain.setValueAtTime(0.0001, start); gain.gain.exponentialRampToValueAtTime(0.34, start + 0.018); gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.22); oscillator.connect(gain).connect(context.destination); oscillator.start(start); oscillator.stop(start + 0.24); });
+    setTimeout(() => context.close(), 750);
   } catch { /* som de interface opcional */ }
 }
 
 export function useWebRTC() {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null); const [remotePeers, setRemotePeers] = useState<RemotePeer[]>([]); const [inCall, setInCall] = useState(false); const [callChannelId, setCallChannelId] = useState(""); const [screenSharing, setScreenSharing] = useState(false); const [audioEnabled, setAudioEnabled] = useState(true); const [videoEnabled, setVideoEnabled] = useState(false); const [noiseSuppression, setNoiseSuppression] = useState(true);
-  const peers = useRef(new Map<string, RTCPeerConnection>()); const pendingCandidates = useRef(new Map<string, RTCIceCandidateInit[]>()); const peerUsers = useRef(new Map<string, PublicUser>()); const peerStates = useRef(new Map<string, { audioEnabled: boolean; videoEnabled: boolean; screenSharing: boolean }>()); const channelRef = useRef<string | undefined>(undefined); const streamRef = useRef<MediaStream | null>(null); const screenTrackRef = useRef<MediaStreamTrack | null>(null); const cameraTrackRef = useRef<MediaStreamTrack | null>(null); const cameraDeviceRef = useRef<string | undefined>(undefined);
+  const reconnectTimers = useRef(new Map<string, number>()); const peers = useRef(new Map<string, RTCPeerConnection>()); const pendingCandidates = useRef(new Map<string, RTCIceCandidateInit[]>()); const peerUsers = useRef(new Map<string, PublicUser>()); const peerStates = useRef(new Map<string, { audioEnabled: boolean; videoEnabled: boolean; screenSharing: boolean }>()); const channelRef = useRef<string | undefined>(undefined); const streamRef = useRef<MediaStream | null>(null); const screenTrackRef = useRef<MediaStreamTrack | null>(null); const cameraTrackRef = useRef<MediaStreamTrack | null>(null); const cameraDeviceRef = useRef<string | undefined>(undefined);
   const publishState = useCallback((next: { audioEnabled: boolean; videoEnabled: boolean; screenSharing: boolean }) => { if (channelRef.current) getSocket().emit("call:state", { channelId: channelRef.current, ...next }); }, []);
   const negotiate = useCallback(async (id: string, peer: RTCPeerConnection) => { const offer = await peer.createOffer(); await peer.setLocalDescription(offer); getSocket().emit("webrtc:signal", { target: id, signal: { description: peer.localDescription } }); }, []);
   const updateRemote = useCallback((id: string, stream?: MediaStream) => { const user = peerUsers.current.get(id) ?? { id, username: "participante", displayName: "Participante" }; const state = peerStates.current.get(id) ?? { audioEnabled: true, videoEnabled: false, screenSharing: false }; setRemotePeers((current) => { const previous = current.find((item) => item.id === id); return [...current.filter((item) => item.id !== id), { id, stream: stream ?? previous?.stream ?? new MediaStream(), user, ...state }]; }); }, []);
-  const makePeer = useCallback((id: string) => { const existing = peers.current.get(id); if (existing) return existing; const peer = new RTCPeerConnection({ iceServers }); peers.current.set(id, peer); peer.onicecandidate = ({ candidate }) => candidate && getSocket().emit("webrtc:signal", { target: id, signal: { candidate } }); peer.ontrack = ({ streams }) => updateRemote(id, streams[0]); peer.onconnectionstatechange = () => { if (peer.connectionState === "failed") peer.restartIce(); if (peer.connectionState === "closed") { peers.current.delete(id); pendingCandidates.current.delete(id); setRemotePeers((items) => items.filter((item) => item.id !== id)); } }; streamRef.current?.getTracks().forEach((track) => peer.addTrack(track, streamRef.current!)); return peer; }, [updateRemote]);
+  const makePeer = useCallback((id: string) => {
+    const existing = peers.current.get(id);
+    if (existing) return existing;
+    const peer = new RTCPeerConnection({ iceServers, bundlePolicy: "max-bundle", iceCandidatePoolSize: 4 });
+    peers.current.set(id, peer);
+    peer.onicecandidate = ({ candidate }) => candidate && getSocket().emit("webrtc:signal", { target: id, signal: { candidate } });
+    peer.ontrack = ({ track, streams }) => {
+      const stream = streams[0] ?? new MediaStream([track]);
+      updateRemote(id, stream);
+    };
+    peer.onconnectionstatechange = () => {
+      if (peer.connectionState === "connected") {
+        const timer = reconnectTimers.current.get(id);
+        if (timer) window.clearTimeout(timer);
+        reconnectTimers.current.delete(id);
+      }
+      if (peer.connectionState === "failed" || peer.connectionState === "disconnected") {
+        if (reconnectTimers.current.has(id)) return;
+        const timer = window.setTimeout(() => {
+          reconnectTimers.current.delete(id);
+          if (peer.connectionState === "failed" || peer.connectionState === "disconnected") {
+            peer.restartIce();
+            void negotiate(id, peer).catch(() => undefined);
+          }
+        }, peer.connectionState === "failed" ? 0 : 2500);
+        reconnectTimers.current.set(id, timer);
+      }
+      if (peer.connectionState === "closed") {
+        const timer = reconnectTimers.current.get(id);
+        if (timer) window.clearTimeout(timer);
+        reconnectTimers.current.delete(id);
+        peers.current.delete(id);
+        pendingCandidates.current.delete(id);
+        setRemotePeers((items) => items.filter((item) => item.id !== id));
+      }
+    };
+    streamRef.current?.getTracks().forEach((track) => peer.addTrack(track, streamRef.current!));
+    return peer;
+  }, [negotiate, updateRemote]);
   const finishScreenSharing = useCallback((screenTrack: MediaStreamTrack) => { if (screenTrackRef.current !== screenTrack) return; screenTrackRef.current = null; setScreenSharing(false); publishState({ audioEnabled, videoEnabled, screenSharing: false }); const cameraTrack = cameraTrackRef.current; streamRef.current?.removeTrack(screenTrack); if (cameraTrack && !streamRef.current?.getVideoTracks().includes(cameraTrack)) streamRef.current?.addTrack(cameraTrack); if (streamRef.current) setLocalStream(new MediaStream(streamRef.current.getTracks())); void Promise.all([...peers.current.values()].map(async (peer) => { const sender = peer.getSenders().find((item) => item.track?.kind === "video"); if (sender) await sender.replaceTrack(cameraTrack?.enabled ? cameraTrack : null); })).catch(() => undefined); playSignal("share"); }, [audioEnabled, publishState, videoEnabled]);
   const stopScreen = useCallback(() => { const track = screenTrackRef.current; if (!track) return; track.stop(); finishScreenSharing(track); }, [finishScreenSharing]);
   const disconnect = useCallback(() => { const wasInCall = !!channelRef.current; if (channelRef.current) getSocket().emit("call:leave", channelRef.current); peers.current.forEach((peer) => peer.close()); peers.current.clear(); peerUsers.current.clear(); peerStates.current.clear(); streamRef.current?.getTracks().forEach((track) => track.stop()); streamRef.current = null; screenTrackRef.current = null; cameraTrackRef.current = null; channelRef.current = undefined; setCallChannelId(""); setLocalStream(null); setRemotePeers([]); setInCall(false); setScreenSharing(false); setAudioEnabled(true); setVideoEnabled(false); if (wasInCall) playSignal("leave"); }, []);
@@ -65,3 +109,4 @@ export function useWebRTC() {
   }, []);
   return { localStream, remotePeers, inCall, callChannelId, screenSharing, audioEnabled, videoEnabled, noiseSuppression, join, leave: () => undefined, disconnect, shareScreen, stopScreen, toggleAudio, toggleVideo, toggleNoiseSuppression, switchAudioInput };
 }
+
