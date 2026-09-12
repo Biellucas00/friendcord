@@ -23,6 +23,8 @@ services:
         sync: false
       - key: GEMINI_MODEL
         value: gemini-2.5-flash
+      - key: DISCORD_DEBUG_WEBHOOK
+        sync: false
   - type: web
     name: friendcord-web
     runtime: static
