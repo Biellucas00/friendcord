@@ -1,42 +1,25 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { MediaState } from "@friendcord/shared";
 import { getSocket } from "../socket";
 
-type Provider = MediaState["provider"];
-type QueueItem = Pick<MediaState, "provider" | "mediaId" | "mediaType">;
-
-function serviceName(provider: Provider) { return provider === "youtube" ? "YouTube" : provider === "spotify" ? "Spotify" : "SoundCloud"; }
-
-function extract(input: string, provider: Provider): QueueItem | null {
-  const value = input.trim();
-  if (provider === "youtube") {
-    const match = value.match(/(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:watch\?.*?v=|embed\/|shorts\/|live\/))([\w-]{11})/i);
-    const mediaId = match?.[1] ?? (/^[\w-]{11}$/.test(value) ? value : "");
-    return mediaId ? { provider, mediaId, mediaType: "video" } : null;
-  }
-  if (provider === "spotify") {
-    const match = value.match(/open\.spotify\.com\/(track|episode|playlist|album|show)\/([\w]+)/i) ?? value.match(/^spotify:(track|episode|playlist|album|show):([\w]+)$/i);
-    return match ? { provider, mediaType: match[1].toLowerCase(), mediaId: match[2] } : null;
-  }
-  try {
-    const url = new URL(value);
-    return /(^|\.)soundcloud\.com$/i.test(url.hostname) ? { provider, mediaId: url.toString(), mediaType: "track" } : null;
-  } catch { return null; }
-}
+type QueueItem = Pick<MediaState, "provider" | "mediaId" | "mediaType" | "title" | "artist" | "artworkUrl" | "officialUrl">;
+type SearchResult = { id: string; title: string; artist: string; artworkUrl: string; previewUrl: string; officialUrl: string; collection: string };
 
 export function MediaRoom({ channelId }: { channelId: string }) {
-  const [provider, setProvider] = useState<Provider>("soundcloud");
   const [scope, setScope] = useState<"solo" | "room">("solo");
-  const [input, setInput] = useState("");
   const [state, setState] = useState<MediaState | null>(null);
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [collapsed, setCollapsed] = useState(false);
   const [error, setError] = useState("");
   const [volume, setVolume] = useState(() => Number(localStorage.getItem("friendcord_media_volume") ?? 70));
+  const [search, setSearch] = useState("");
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
 
-  const broadcast = useCallback((next: MediaState, targetScope = scope) => {
+  const broadcast = useCallback((next: MediaState) => {
     setState(next);
-    if (targetScope === "room") getSocket().emit("media:update", { channelId, state: next });
+    if (scope === "room") getSocket().emit("media:update", { channelId, state: next });
   }, [channelId, scope]);
 
   useEffect(() => {
@@ -44,45 +27,51 @@ export function MediaRoom({ channelId }: { channelId: string }) {
     getSocket().on("media:state", receive);
     return () => { getSocket().off("media:state", receive); };
   }, []);
+
   useEffect(() => { localStorage.setItem("friendcord_media_volume", String(volume)); }, [volume]);
+  useEffect(() => {
+    if (!audioRef.current) return;
+    audioRef.current.volume = volume / 100;
+    if (state?.playing) void audioRef.current.play().catch(() => undefined);
+    else audioRef.current.pause();
+  }, [state, volume]);
 
-  const embedUrl = useMemo(() => {
-    if (!state) return "";
-    if (state.provider === "youtube") return `https://www.youtube-nocookie.com/embed/${state.mediaId}?autoplay=${state.playing ? 1 : 0}&playsinline=1&rel=0&start=${Math.floor(state.positionSeconds)}`;
-    if (state.provider === "spotify") return `https://open.spotify.com/embed/${state.mediaType ?? "track"}/${state.mediaId}?utm_source=generator`;
-    return `https://w.soundcloud.com/player/?url=${encodeURIComponent(state.mediaId)}&color=%237c5cff&auto_play=${state.playing ? "true" : "false"}&hide_related=true&show_comments=false&show_reposts=false&visual=true`;
-  }, [state]);
-
-  const officialUrl = !state ? "" : state.provider === "youtube" ? `https://www.youtube.com/watch?v=${state.mediaId}` : state.provider === "spotify" ? `https://open.spotify.com/${state.mediaType ?? "track"}/${state.mediaId}` : state.mediaId;
-
-  const load = (item?: QueueItem) => {
-    const selected = item ?? extract(input, provider);
-    if (!selected) { setError(`Cole um link oficial válido do ${serviceName(provider)}.`); return; }
-    setError(""); setInput("");
-    broadcast({ ...selected, playing: true, positionSeconds: 0, updatedAt: Date.now() });
+  const searchMusic = async () => {
+    const term = search.trim();
+    if (term.length < 2) { setError("Digite o nome da musica ou do artista."); return; }
+    setSearching(true); setError(""); setResults([]);
+    try {
+      const response = await fetch(`https://itunes.apple.com/search?media=music&entity=song&limit=15&country=BR&term=${encodeURIComponent(term)}`);
+      if (!response.ok) throw new Error();
+      const data = await response.json() as { results?: Array<{ trackId?: number; trackName?: string; artistName?: string; artworkUrl100?: string; previewUrl?: string; trackViewUrl?: string; collectionName?: string }> };
+      setResults((data.results ?? []).filter((item) => item.previewUrl && item.trackName).map((item) => ({
+        id: String(item.trackId ?? item.previewUrl), title: item.trackName!, artist: item.artistName ?? "Artista desconhecido",
+        artworkUrl: (item.artworkUrl100 ?? "").replace("100x100", "300x300"), previewUrl: item.previewUrl!,
+        officialUrl: item.trackViewUrl ?? "https://music.apple.com/br", collection: item.collectionName ?? "",
+      })));
+    } catch {
+      setError("Nao foi possivel pesquisar agora. Tente novamente em instantes.");
+    } finally { setSearching(false); }
   };
-  const addQueue = () => {
-    const selected = extract(input, provider);
-    if (!selected) { setError(`Cole um link oficial válido do ${serviceName(provider)}.`); return; }
-    setQueue((items) => [...items, selected]); setInput(""); setError("");
-  };
+
+  const playItem = (item: QueueItem) => broadcast({ ...item, playing: true, positionSeconds: 0, updatedAt: Date.now() });
+  const fromResult = (result: SearchResult): QueueItem => ({ provider: "preview", mediaId: result.previewUrl, mediaType: "song", title: result.title, artist: result.artist, artworkUrl: result.artworkUrl, officialUrl: result.officialUrl });
   const updatePlayback = (playing: boolean) => state && broadcast({ ...state, playing, updatedAt: Date.now() });
   const stop = () => state && broadcast({ ...state, playing: false, positionSeconds: 0, updatedAt: Date.now() });
-  const next = () => { const [first, ...rest] = queue; if (first) { setQueue(rest); load(first); } };
+  const next = () => { const [first, ...rest] = queue; if (first) { setQueue(rest); playItem(first); } };
 
-  if (collapsed) return <button className="media-bot-bubble" onClick={() => setCollapsed(false)}>♫ Abrir mídia</button>;
+  if (collapsed) return <button className="media-bot-bubble" onClick={() => setCollapsed(false)}>Musica</button>;
   return <section className="media-room floating-media">
-    <header><div><strong>♫ Bot de mídia</strong><small>SoundCloud recomendado · players oficiais</small></div><button className="media-hide" onClick={() => setCollapsed(true)}>×</button></header>
-    <div className="media-form">
-      <label><span>Serviço</span><select value={provider} onChange={(event) => setProvider(event.target.value as Provider)}><option value="soundcloud">SoundCloud</option><option value="youtube">YouTube</option><option value="spotify">Spotify</option></select></label>
-      <label><span>Reprodução</span><select value={scope} onChange={(event) => setScope(event.target.value as typeof scope)}><option value="solo">Só para mim</option><option value="room">Sincronizar na sala</option></select></label>
-      <div className="media-link-row"><input placeholder={`Cole o link do ${serviceName(provider)}`} value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => event.key === "Enter" && load()} /><button className="primary" onClick={() => load()}>▶ Tocar</button><button onClick={addQueue}>+ Fila</button></div>
+    <header><div><strong>Bot de musica</strong><small>Busca unificada em um unico catalogo</small></div><button className="media-hide" onClick={() => setCollapsed(true)}>-</button></header>
+    <div className="music-search">
+      <div><input placeholder="Pesquise por musica, artista ou album" value={search} onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => event.key === "Enter" && searchMusic()}/><select aria-label="Modo de reproducao" value={scope} onChange={(event) => setScope(event.target.value as typeof scope)}><option value="solo">So para mim</option><option value="room">Sincronizar na sala</option></select><button className="primary" onClick={searchMusic} disabled={searching}>{searching ? "Buscando..." : "Pesquisar"}</button></div>
+      {results.length > 0 && <section className="music-results">{results.map((result) => <article key={result.id}><img src={result.artworkUrl} alt=""/><span><strong>{result.title}</strong><small>{result.artist}{result.collection ? ` - ${result.collection}` : ""}</small></span><button className="primary" onClick={() => playItem(fromResult(result))}>Tocar</button><button title="Adicionar a fila" onClick={() => setQueue((items) => [...items, fromResult(result)])}>+</button></article>)}</section>}
     </div>
-    {state && <div className={`media-content media-${state.provider}`}><iframe key={embedUrl} className={`embed ${state.provider}-embed`} title={serviceName(state.provider)} src={embedUrl} allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowFullScreen /></div>}
+    {state && <div className="media-content media-preview"><div className="preview-player">{state.artworkUrl && <img src={state.artworkUrl} alt=""/>}<span><strong>{state.title}</strong><small>{state.artist}</small></span><audio ref={audioRef} src={state.mediaId} autoPlay controls onEnded={next}/></div></div>}
     {error && <p className="media-inline-error">{error}</p>}
-    <div className="media-controls"><div className="media-transport"><button onClick={() => updatePlayback(true)} disabled={!state}>▶</button><button onClick={() => updatePlayback(false)} disabled={!state}>Ⅱ</button><button onClick={stop} disabled={!state}>■</button><button onClick={next} disabled={!queue.length}>⏭ <span>{queue.length}</span></button></div><label className="media-volume"><span>🔊</span><input aria-label="Volume do bot para mim" type="range" min="0" max="100" value={volume} onChange={(event) => setVolume(Number(event.target.value))} /><output>{volume}%</output></label></div>
-    {state && <a className="media-official-link" href={officialUrl} target="_blank" rel="noreferrer">Abrir no {serviceName(state.provider)} ↗</a>}
-    {queue.length > 0 && <div className="media-queue"><strong>Fila</strong><span>{queue.map((item, index) => `${index + 1}. ${serviceName(item.provider)}`).join(" · ")}</span></div>}
-    <small className="media-legal">O FriendCord não baixa nem retransmite conteúdo. Login, anúncios e disponibilidade são controlados pelo serviço oficial.</small>
+    <div className="media-controls"><div className="media-transport"><button onClick={() => updatePlayback(true)} disabled={!state}>Play</button><button onClick={() => updatePlayback(false)} disabled={!state}>Pausa</button><button onClick={stop} disabled={!state}>Parar</button><button onClick={next} disabled={!queue.length}>Proxima <span>{queue.length}</span></button></div><label className="media-volume"><span>Vol.</span><input aria-label="Volume do bot para mim" type="range" min="0" max="100" value={volume} onChange={(event) => setVolume(Number(event.target.value))}/><output>{volume}%</output></label></div>
+    {state?.officialUrl && <a className="media-official-link" href={state.officialUrl} target="_blank" rel="noreferrer">Abrir fonte oficial</a>}
+    {queue.length > 0 && <div className="media-queue"><strong>Fila</strong><span>{queue.map((item, index) => `${index + 1}. ${item.title ?? "Musica"}`).join(" - ")}</span></div>}
+    <small className="media-legal">A busca toca previas oficiais. O FriendCord nao baixa nem retransmite musicas completas.</small>
   </section>;
 }
