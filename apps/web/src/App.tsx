@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { ensureSocketConnected, getSocket, resetSocket } from "./socket";import { useEffect, useRef, useState } from "react";
 import type { Attachment, CallParticipant, Channel, ChannelCategory, ChatMessage, DirectMessage, MessageRequest, PublicUser, Room, ServerRole } from "@friendcord/shared";
 import { API_URL, api, getToken, subscribeToLoading, uploadFile } from "./api";
-import { getSocket, resetSocket } from "./socket";
+const send = async (direct: boolean) => { if ((!body.trim() && !pendingFile) || (direct && !selectedUser)) return; try { const attachmentId = pendingFile ? (await uploadFile<Attachment>(pendingFile, pendingFile.name)).id : undefined; const socket = await ensureSocketConnected(); const result = await new Promise<{ok:boolean;error?:string}>((resolve, reject) => { const timer=window.setTimeout(()=>reject(new Error("O servidor não confirmou o envio da mensagem.")),15000); const acknowledge=(reply:{ok:boolean;error?:string})=>{window.clearTimeout(timer);resolve(reply);}; if (direct && selectedUser) socket.emit("dm:send", { receiverId: selectedUser.id, body, attachmentId }, acknowledge); else socket.emit("message:send", { channelId, body, attachmentId }, acknowledge); }); if (!result.ok) throw new Error(result.error || "Não foi possível enviar a mensagem."); if (direct && selectedUser) askAssistant(body, { receiverId: selectedUser.id }); else askAssistant(body, { channelId }); setBody(""); setPendingFile(null); setShowTools(false); setShowEmoji(false); } catch (cause) { setError((cause as Error).message); } };
 import { playSignal, useWebRTC, type RemotePeer } from "./hooks/useWebRTC";
 import { AudioSink, useSpeaking, VideoTile } from "./components/VideoTile";
 import { MediaRoom } from "./components/MediaRoom";
