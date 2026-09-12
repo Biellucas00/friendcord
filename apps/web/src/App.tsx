@@ -208,27 +208,30 @@ export default function App() {
   useEffect(() => { historyRef.current?.scrollTo({ top: historyRef.current.scrollHeight, behavior: "smooth" }); }, [messages, dmMessages]);
   useEffect(() => { const close = () => setContextMenu(null); window.addEventListener("click", close); window.addEventListener("resize", close); window.addEventListener("scroll", close, true); return () => { window.removeEventListener("click", close); window.removeEventListener("resize", close); window.removeEventListener("scroll", close, true); }; }, []);
   useEffect(() => { const preventBrowserMenu = (event: MouseEvent) => { const target = event.target as HTMLElement | null; if (target?.closest(".member,.message-history article,.dm-person,.call-mini-users>div,.call-user-bar,.categorized-voice-user")) event.preventDefault(); }; document.addEventListener("contextmenu", preventBrowserMenu, true); return () => document.removeEventListener("contextmenu", preventBrowserMenu, true); }, []);
+  useEffect(() => {
+    if (!contextMenu) return;
+    const peer = rtc.remotePeers.find((item) => item.user.id === contextMenu.person.id);
+    if (!peer) return;
+    const preference = peerPreferences[peer.id] ?? { volume: 1, muted: false };
+    const panel = document.querySelector<HTMLElement>(".user-context-menu .context-audio");
+    if (!panel) return;
+    const voiceSlider = panel.querySelector<HTMLInputElement>('input[type="range"]');
+    if (voiceSlider) voiceSlider.max = "2.5";
+    if (!peer.screenSharing) return;
+    const controls = document.createElement("div"); controls.className = "context-stream-audio";
+    const label = document.createElement("label"); label.textContent = `Volume da transmissao: ${Math.round((preference.screenVolume ?? 1) * 100)}%`;
+    const slider = document.createElement("input"); slider.type = "range"; slider.min = "0"; slider.max = "2.5"; slider.step = ".05"; slider.value = String(preference.screenVolume ?? 1);
+    slider.oninput = () => setPeerPreferences((current) => ({ ...current, [peer.id]: { ...current[peer.id], volume: current[peer.id]?.volume ?? 1, muted: current[peer.id]?.muted ?? false, screenVolume: Number(slider.value) } }));
+    const mute = document.createElement("button"); mute.type = "button"; mute.textContent = preference.screenMuted ? "Ouvir transmissao" : "Silenciar transmissao";
+    mute.onclick = () => setPeerPreferences((current) => ({ ...current, [peer.id]: { ...current[peer.id], volume: current[peer.id]?.volume ?? 1, muted: current[peer.id]?.muted ?? false, screenMuted: !current[peer.id]?.screenMuted } }));
+    label.append(slider); controls.append(label, mute); panel.append(controls);
+    return () => controls.remove();
+  }, [contextMenu, peerPreferences, rtc.remotePeers]);
   useEffect(() => { if (!editingRoleId || Object.keys(roleDraft.categoryPermissions).length) return; const role = customRoles.find((item) => item.id === editingRoleId); if (role && Object.keys(role.categoryPermissions).length) setRoleDraft((current) => ({ ...current, categoryPermissions: { ...role.categoryPermissions } })); }, [editingRoleId, customRoles]);
   if (!user) return <Auth onDone={setUser}/>;
   const openUserContext = (event: React.MouseEvent, person: PublicUser) => { event.preventDefault(); event.stopPropagation(); setContextMenu({ person, x: Math.min(event.clientX, window.innerWidth - 290), y: Math.min(event.clientY, window.innerHeight - 650) }); };
   const contextPeer = contextMenu ? rtc.remotePeers.find((peer) => peer.user.id === contextMenu.person.id) : undefined;
   const contextPreference = contextPeer ? peerPreferences[contextPeer.id] ?? { volume: 1, muted: false } : undefined;
-  useEffect(() => {
-    if (!contextPeer || !contextPreference) return;
-    const panel = document.querySelector<HTMLElement>(".user-context-menu .context-audio");
-    if (!panel) return;
-    const voiceSlider = panel.querySelector<HTMLInputElement>('input[type="range"]');
-    if (voiceSlider) { voiceSlider.max = "2.5"; voiceSlider.parentElement?.prepend(document.createTextNode(`Boost ate 250% - atual ${Math.round(contextPreference.volume * 100)}% | `)); }
-    if (!contextPeer.screenSharing) return;
-    const controls = document.createElement("div"); controls.className = "context-stream-audio";
-    const label = document.createElement("label"); label.textContent = `Volume da transmissao: ${Math.round((contextPreference.screenVolume ?? 1) * 100)}%`;
-    const slider = document.createElement("input"); slider.type = "range"; slider.min = "0"; slider.max = "2.5"; slider.step = ".05"; slider.value = String(contextPreference.screenVolume ?? 1);
-    slider.oninput = () => setPeerPreferences((current) => ({ ...current, [contextPeer.id]: { ...current[contextPeer.id], volume: current[contextPeer.id]?.volume ?? 1, muted: current[contextPeer.id]?.muted ?? false, screenVolume: Number(slider.value) } }));
-    const mute = document.createElement("button"); mute.type = "button"; mute.textContent = contextPreference.screenMuted ? "Ouvir transmissao" : "Silenciar transmissao";
-    mute.onclick = () => setPeerPreferences((current) => ({ ...current, [contextPeer.id]: { ...current[contextPeer.id], volume: current[contextPeer.id]?.volume ?? 1, muted: current[contextPeer.id]?.muted ?? false, screenMuted: !current[contextPeer.id]?.screenMuted } }));
-    label.append(slider); controls.append(label, mute); panel.append(controls);
-    return () => controls.remove();
-  }, [contextPeer, contextPreference]);
   const toggleStoredUser = (key: "friendcord_ignored_users" | "friendcord_blocked_users", id: string, current: string[], setCurrent: (value: string[]) => void) => { const next = current.includes(id) ? current.filter((item) => item !== id) : [...current, id]; localStorage.setItem(key, JSON.stringify(next)); setCurrent(next); };
 
   const openRoom = (id: string) => { setRoomId(id); setView("room"); }; const openDirect = (person: PublicUser) => { setSelectedUser(person); setUnreadDirects((current) => current.filter((id) => id !== person.id)); setBody(""); setModal(null); setView("dm"); };
