@@ -5,6 +5,7 @@ import { config } from "./config.js";
 import { query } from "./db.js";
 import { readToken, type AuthUser } from "./auth.js";
 import { getChannelPermissions, hasChannelPermission } from "./permissions.js";
+import { reportError } from "./telemetry.js";
 
 const online = new Map<string, { user: AuthUser; sockets: Set<string> }>();
 let activeIo: SocketServer<ClientToServerEvents, ServerToClientEvents> | null = null;
@@ -94,8 +95,8 @@ export function attachSocket(server: Server) {
       const voiceChannels = await query<{ id: string }>("SELECT id FROM channels WHERE room_id=$1 AND kind='voice'", [roomId]);
       await Promise.all(voiceChannels.rows.map(({ id }) => publishCallRoster(id)));
     });
-    socket.on("message:send", async ({ channelId, body, attachmentId }) => {
-      const clean = body.trim().slice(0, 2000); if (!clean && !attachmentId) return;
+    socket.on("message:send", async ({ channelId, body, attachmentId }, acknowledge) => { try {
+      const clean = body.trim().slice(0, 2000); if (!clean && !attachmentId) return acknowledge?.({ ok: false, error: "Digite uma mensagem ou anexe um arquivo." });
       const resolved = await getChannelPermissions(channelId,user.id,user.siteRole);
       if (!resolved?.accessible || (!resolved.permissions.administrator && !resolved.permissions.sendMessages)) return socket.emit("notification",{title:"Permissão negada",body:"Você não pode enviar mensagens neste canal."});
       if (attachmentId && !resolved.permissions.administrator && !resolved.permissions.attachFiles) return socket.emit("notification",{title:"Permissão negada",body:"Você não pode anexar arquivos neste canal."});
@@ -108,20 +109,22 @@ export function attachSocket(server: Server) {
       if (!result.rows[0]) return; let attachment = null;
       if (attachmentId) { const file = await query<any>("SELECT id,filename,mime_type AS \"mimeType\",size_bytes AS \"sizeBytes\" FROM attachments WHERE id=$1", [attachmentId]); if (file.rows[0]) attachment = { ...file.rows[0], url: `/api/attachments/${attachmentId}` }; }
       io.to(`channel:${channelId}`).emit("message:new", { ...result.rows[0], author: user, attachment });
+      acknowledge?.({ ok: true });
       const mentionedUsernames = [...new Set([...clean.matchAll(/@([a-zA-Z0-9_]{3,32})/g)].map((match) => match[1].toLowerCase()))].filter((username) => username !== user.username.toLowerCase() && username !== "gpt" && username !== "gemini");
       if (mentionedUsernames.length) {
         const mentionedUsers = await query<{ id: string; username: string }>(`SELECT u.id,u.username FROM users u JOIN memberships m ON m.user_id=u.id JOIN channels c ON c.room_id=m.room_id WHERE c.id=$1 AND lower(u.username)=ANY($2::text[])`, [channelId, mentionedUsernames]);
         mentionedUsers.rows.forEach((mentioned) => io.to(`user:${mentioned.id}`).emit("notification", { title: `@${user.username} mencionou você`, body: clean.slice(0, 160) }));
       }
-    });
-    socket.on("dm:send", async ({ receiverId, body, attachmentId }) => {
-      const clean = body.trim().slice(0, 2000); if (!clean && !attachmentId) return;
+    } catch (error) { await reportError("socket:message:send", error, { userId: user.id, channelId }); acknowledge?.({ ok: false, error: "Erro interno ao enviar a mensagem." }); } });
+    socket.on("dm:send", async ({ receiverId, body, attachmentId }, acknowledge) => { try {
+      const clean = body.trim().slice(0, 2000); if (!clean && !attachmentId) return acknowledge?.({ ok: false, error: "Digite uma mensagem ou anexe um arquivo." });
       const accepted = !!(await query("SELECT 1 WHERE EXISTS(SELECT 1 FROM friend_requests WHERE status='accepted' AND ((sender_id=$1 AND receiver_id=$2) OR (sender_id=$2 AND receiver_id=$1))) OR EXISTS(SELECT 1 FROM message_requests WHERE status='accepted' AND ((sender_id=$1 AND receiver_id=$2) OR (sender_id=$2 AND receiver_id=$1)))", [user.id,receiverId])).rowCount;
       let requestId = ""; if (!accepted) { const request = await query<{ id:string }>("INSERT INTO message_requests(sender_id,receiver_id,status) VALUES($1,$2,'pending') ON CONFLICT(sender_id,receiver_id) DO UPDATE SET status=CASE WHEN message_requests.status='rejected' THEN 'pending' ELSE message_requests.status END,updated_at=now() RETURNING id", [user.id,receiverId]); requestId=request.rows[0]?.id??""; }
       const result = await query<any>(`INSERT INTO direct_messages(sender_id,receiver_id,body,attachment_id) SELECT $1,$2,$3,$4 WHERE ($5 OR EXISTS(SELECT 1 FROM message_requests WHERE sender_id=$1 AND receiver_id=$2 AND status='pending')) AND ($4::uuid IS NULL OR EXISTS(SELECT 1 FROM attachments WHERE id=$4 AND uploaded_by=$1)) RETURNING id,sender_id AS "senderId",receiver_id AS "receiverId",coalesce(body,'') AS body,created_at AS "createdAt"`, [user.id, receiverId, clean, attachmentId ?? null, accepted]);
       if (!result.rows[0]) return; let attachment = null; if (attachmentId) { const file = await query<any>("SELECT id,filename,mime_type AS \"mimeType\",size_bytes AS \"sizeBytes\" FROM attachments WHERE id=$1", [attachmentId]); if (file.rows[0]) attachment = { ...file.rows[0], url: `/api/attachments/${attachmentId}` }; }
       io.to(`user:${user.id}`).emit("dm:new", { ...result.rows[0], author: user, attachment }); if (accepted) io.to(`user:${receiverId}`).emit("dm:new", { ...result.rows[0], author: user, attachment }); else io.to(`user:${receiverId}`).emit("message-request:new", { id:requestId,sender:user,preview:clean||"📎 Arquivo",createdAt:result.rows[0].createdAt });
-    });
+      acknowledge?.({ ok: true });
+    } catch (error) { await reportError("socket:dm:send", error, { userId: user.id, receiverId }); acknowledge?.({ ok: false, error: "Erro interno ao enviar a mensagem privada." }); } });
     socket.on("ai:ask", async ({ channelId, receiverId, provider, prompt }) => { try {
       const clean = prompt.trim(); if (!clean) return; const answer = (await askAssistant(provider, clean)).slice(0, 12000); const botName = provider === "gpt" ? "FriendGPT" : "FriendGemini"; const botUsername = provider === "gpt" ? "friendgpt" : "friendgemini";
       const bot = (await query<any>("INSERT INTO users(username,display_name,real_name,password_hash,custom_status) VALUES($1,$2,$2,'DISABLED_AI_ACCOUNT','Assistente de IA') ON CONFLICT(username) DO UPDATE SET display_name=EXCLUDED.display_name RETURNING id,username,display_name AS \"displayName\",custom_status AS \"customStatus\"", [botUsername, botName])).rows[0];
