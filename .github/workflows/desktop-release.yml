@@ -1,4 +1,4 @@
-name: FriendCord Desktop Release
+name: Discordo Desktop Release
 on:
   workflow_dispatch:
   push:
@@ -45,7 +45,7 @@ jobs:
         with:
           projectPath: apps/desktop
           tagName: friendcord-v0.1.${{ github.run_number }}
-          releaseName: FriendCord v0.1.${{ github.run_number }}
-          releaseBody: Atualizacao automatica do FriendCord para Windows.
+          releaseName: Discordo v0.1.${{ github.run_number }}
+          releaseBody: Atualizacao automatica do Discordo para Windows.
           releaseDraft: false
           prerelease: false
