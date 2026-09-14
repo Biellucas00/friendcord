@@ -1,10 +1,10 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "FriendCord",
+  "productName": "Discordo",
   "version": "0.1.0",
   "identifier": "com.friendcord.desktop",
-  "build": { "beforeDevCommand": "pnpm --filter @friendcord/web dev", "devUrl": "http://localhost:5173", "beforeBuildCommand": "pnpm --filter @friendcord/web build", "frontendDist": "../../web/dist" },
-  "app": { "windows": [{ "label": "main", "title": "FriendCord", "width": 1440, "height": 900, "minWidth": 900, "minHeight": 600, "resizable": true }], "security": { "csp": null } },
+  "build": { "devUrl": "https://call.yagobrandao.dev.br", "frontendDist": "https://call.yagobrandao.dev.br" },
+  "app": { "windows": [{ "label": "main", "title": "Discordo", "url": "https://call.yagobrandao.dev.br", "width": 1440, "height": 900, "minWidth": 900, "minHeight": 600, "resizable": true }], "security": { "csp": null } },
   "bundle": { "active": true, "targets": ["nsis", "msi"], "icon": ["icons/icon.ico"], "createUpdaterArtifacts": true },
   "plugins": { "updater": { "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaW5pIHB1YmxpYyBrZXk6IEY1OTA2N0ZGOEMwNzRBNTUKUldSVlNnZU0vMmVROVFTQm9hTWtZQzRaNkV1QUZ3VEcxb3M3MTNyWjFtNVFSOEFDWkduZXQzR3EK", "endpoints": ["https://github.com/Biellucas00/friendcord/releases/latest/download/latest.json"], "windows": { "installMode": "passive" } } }
 }
